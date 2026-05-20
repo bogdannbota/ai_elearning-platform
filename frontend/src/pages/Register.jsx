@@ -34,7 +34,7 @@ export default function Register() {
         },
         { headers: { "Content-Type": "application/json" } }
       );
-      setSuccess("Cont creat cu succes! Poți să te loghezi acum.");
+      setSuccess("Cont creat cu succes! Te vom redirecționa imediat...");
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
       setError(err.response?.data?.detail || "Eroare la înregistrare");
@@ -44,64 +44,124 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-900 to-blue-700 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden">
+      
+      {/* Background Subtle Gradient & Pattern */}
+      <div className="absolute inset-0 bg-white" style={{ backgroundImage: "linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%)" }} />
+      <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM2YmI4YTMiIGZpbGwtb3BhY2l0eT0iMC41Ij48cGF0aCBkPSJNMCAwaDQwdjQwSDBWMHptMjAgMjBoMjB2MjBIMjBWMjB6TTAgMjBoMjB2MjBIMFYyMHoyMCAwaDIwdjIwSDIwVjB6Ii8+PC9nPjwvZz48L3N2Zz4=')" }} />
+
+      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500 z-10">
+        
+        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-900">AI eLearning</h1>
-          <p className="text-gray-500 mt-2">Creează un cont nou</p>
+          <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-300 to-cyan-400 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-amber-500/10">
+            <span className="text-3xl">🚀</span>
+          </div>
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Începe călătoria</h1>
+          <p className="text-gray-600 mt-2 text-sm">Creează un cont gratuit și accesează cursurile interactive.</p>
         </div>
 
-        {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm mb-4">{error}</div>}
-        {success && <div className="bg-green-50 text-green-600 px-4 py-3 rounded-lg text-sm mb-4">{success}</div>}
+        {/* Form Card */}
+        <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-2xl shadow-gray-100">
+          
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2 mb-6">
+              <span>⚠️</span> {error}
+            </div>
+          )}
+          
+          {success && (
+            <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2 mb-6">
+              <span>✓</span> {success}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            placeholder="Nume complet"
-            value={form.full_name}
-            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Parolă"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Confirmă parola"
-            value={form.confirm_password}
-            onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50"
-          >
-            {loading ? "Se creează contul..." : "Înregistrează-te"}
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            
+            <div>
+              <label className="block text-xs font-semibold text-cyan-700 mb-1.5 ml-1 uppercase tracking-wider">Nume Complet</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">👤</span>
+                <input
+                  type="text"
+                  placeholder="Ex: Ion Popescu"
+                  value={form.full_name}
+                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:bg-white focus:ring-1 focus:ring-cyan-100 transition-all"
+                  required
+                />
+              </div>
+            </div>
 
-        <p className="text-center text-gray-500 text-sm mt-6">
-          Ai deja cont?{" "}
-          <button onClick={() => navigate("/login")} className="text-blue-600 hover:underline font-medium">
-            Loghează-te
-          </button>
-        </p>
+            <div>
+              <label className="block text-xs font-semibold text-cyan-700 mb-1.5 ml-1 uppercase tracking-wider">Email</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">✉️</span>
+                <input
+                  type="email"
+                  placeholder="nume@exemplu.com"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:bg-white focus:ring-1 focus:ring-cyan-100 transition-all"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-cyan-700 mb-1.5 ml-1 uppercase tracking-wider">Parolă</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:bg-white focus:ring-1 focus:ring-cyan-100 transition-all"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-cyan-700 mb-1.5 ml-1 uppercase tracking-wider">Confirmare</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={form.confirm_password}
+                  onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:bg-white focus:ring-1 focus:ring-cyan-100 transition-all"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gray-900 hover:bg-gray-800 text-white font-extrabold py-4 rounded-xl transition-all shadow-md shadow-gray-900/10 disabled:opacity-50 disabled:shadow-none mt-6"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Se procesează...
+                </span>
+              ) : (
+                "Creează contul"
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+            <p className="text-gray-500 text-sm">
+              Ai deja un cont?{" "}
+              <button 
+                onClick={() => navigate("/login")} 
+                className="text-cyan-600 hover:text-cyan-700 font-semibold transition"
+              >
+                Loghează-te aici
+              </button>
+            </p>
+          </div>
+        </div>
+
       </div>
     </div>
   );

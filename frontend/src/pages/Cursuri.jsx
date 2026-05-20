@@ -7,10 +7,10 @@ import { useToast } from "../context/ToastContext";
 const API = "http://127.0.0.1:8000";
 
 const DIFFICULTY_LABELS = {
-  beginner:     { label: "Începător",   color: "bg-green-500/20 text-green-400"  },
-  intermediate: { label: "Intermediar", color: "bg-blue-500/20 text-blue-400"    },
-  advanced:     { label: "Avansat",     color: "bg-amber-500/20 text-amber-400"  },
-  expert:       { label: "Expert",      color: "bg-red-500/20 text-red-400"      },
+  beginner:     { label: "Începător",   color: "bg-green-100 text-green-700" },
+  intermediate: { label: "Intermediar", color: "bg-cyan-100 text-cyan-700"   },
+  advanced:     { label: "Avansat",     color: "bg-amber-100 text-amber-700" },
+  expert:       { label: "Expert",      color: "bg-red-100 text-red-700"     },
 };
 
 // ─── Course Card ─────────────────────────────────────────────
@@ -21,52 +21,51 @@ function CourseCard({ course, enrollment, onEnroll, onView }) {
 
   return (
     <div
-      className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-blue-500/40 hover:-translate-y-0.5 transition-all cursor-pointer group"
+      className="bg-white border border-gray-100 rounded-3xl overflow-hidden hover:shadow-xl hover:shadow-cyan-100/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer group flex flex-col h-full"
       onClick={() => onView(course.id)}
     >
       {/* Cover */}
-      <div className="h-36 bg-gradient-to-br from-blue-900/60 to-indigo-900/60 flex items-center justify-center relative overflow-hidden">
+      <div className="h-40 bg-gradient-to-br from-cyan-50 to-amber-50 flex items-center justify-center relative overflow-hidden border-b border-gray-50">
         {course.cover_image_path ? (
           <img
             src={`${API}/${course.cover_image_path}`}
             alt={course.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <span className="text-5xl opacity-60">📚</span>
+          <span className="text-6xl opacity-20 transform group-hover:scale-110 transition-transform duration-500">📚</span>
         )}
+        
         {/* Badge categorie */}
         {course.category && (
-          <span className="absolute top-3 left-3 px-2 py-0.5 bg-black/50 text-white text-xs rounded-full backdrop-blur-sm">
+          <span className="absolute top-3 left-3 px-3 py-1 bg-white/90 text-gray-800 text-xs font-bold rounded-full backdrop-blur-sm shadow-sm">
             {course.category.name}
           </span>
         )}
         {/* Badge finalizat */}
         {completed && (
-          <span className="absolute top-3 right-3 px-2 py-0.5 bg-green-500/80 text-white text-xs rounded-full font-medium">
+          <span className="absolute top-3 right-3 px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-md shadow-green-500/30">
             ✓ Finalizat
           </span>
         )}
       </div>
 
       {/* Content */}
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="text-sm font-semibold text-white leading-snug group-hover:text-blue-400 transition line-clamp-2">
-            {course.title}
-          </h3>
-        </div>
+      <div className="p-6 flex-1 flex flex-col">
+        <h3 className="text-lg font-extrabold text-gray-900 leading-snug group-hover:text-cyan-600 transition-colors line-clamp-2 mb-2">
+          {course.title}
+        </h3>
 
-        <p className="text-xs text-gray-500 mb-3 line-clamp-2">
-          {course.short_description || course.description || "Fără descriere"}
+        <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-1">
+          {course.short_description || course.description || "Acest curs nu are o descriere scurtă momentan."}
         </p>
 
-        <div className="flex items-center gap-2 mb-4">
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${diff.color}`}>
+        <div className="flex items-center gap-2 mb-5">
+          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${diff.color}`}>
             {diff.label}
           </span>
           {course.duration_minutes > 0 && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs font-bold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
               ⏱ {course.duration_minutes} min
             </span>
           )}
@@ -74,16 +73,16 @@ function CourseCard({ course, enrollment, onEnroll, onView }) {
 
         {/* Progress bar dacă e înscris */}
         {enrollment && (
-          <div className="mb-3">
-            <div className="flex justify-between text-xs mb-1">
+          <div className="mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+            <div className="flex justify-between text-xs font-bold mb-1.5 uppercase tracking-wider">
               <span className="text-gray-500">Progres</span>
-              <span className={completed ? "text-green-400" : "text-blue-400"}>
+              <span className={completed ? "text-green-600" : "text-cyan-600"}>
                 {progress}%
               </span>
             </div>
-            <div className="w-full bg-white/10 rounded-full h-1.5">
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
               <div
-                className={`h-1.5 rounded-full transition-all ${completed ? "bg-green-500" : "bg-blue-500"}`}
+                className={`h-full rounded-full transition-all duration-1000 ${completed ? "bg-green-500" : "bg-cyan-500"}`}
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -94,16 +93,16 @@ function CourseCard({ course, enrollment, onEnroll, onView }) {
         {enrollment ? (
           <button
             onClick={(e) => { e.stopPropagation(); onView(course.id); }}
-            className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition"
+            className="w-full py-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold transition shadow-md shadow-gray-900/10 mt-auto"
           >
-            {completed ? "📖 Revizuiește" : "▶ Continuă cursul"}
+            {completed ? "📖 Revizuiește Cursul" : "▶ Continuă Învățarea"}
           </button>
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); onEnroll(course.id); }}
-            className="w-full py-2 rounded-xl bg-white/10 hover:bg-blue-600 text-gray-300 hover:text-white text-xs font-semibold transition border border-white/10 hover:border-transparent"
+            className="w-full py-3 rounded-xl bg-cyan-50 hover:bg-cyan-500 text-cyan-700 hover:text-white text-sm font-bold transition-all mt-auto"
           >
-            + Înscrie-te gratuit
+            + Înscrie-te Gratuit
           </button>
         )}
       </div>
@@ -138,7 +137,6 @@ export default function Cursuri() {
       setCourses(cRes.data);
       setEnrollments(eRes.data);
 
-      // Extragem categoriile unice din cursuri
       const cats = [];
       cRes.data.forEach((c) => {
         if (c.category && !cats.find((x) => x.id === c.category.id)) {
@@ -165,72 +163,59 @@ export default function Cursuri() {
     }
   };
 
-  // ─── Filtrare ─────────────────────────────────────────────
   const filtered = courses.filter((c) => {
     const enr = getEnrollment(c.id);
-
-    const matchSearch =
-      c.title.toLowerCase().includes(search.toLowerCase()) ||
-      c.description?.toLowerCase().includes(search.toLowerCase());
-
-    const matchCat =
-      activeCategory === "all" ||
-      c.category?.id?.toString() === activeCategory;
-
-    const matchDiff =
-      activeDiff === "all" || c.difficulty_level === activeDiff;
-
-    const matchStatus =
-      activeStatus === "all" ||
-      (activeStatus === "enrolled" && enr) ||
-      (activeStatus === "available" && !enr) ||
-      (activeStatus === "completed" && enr?.completed);
-
+    const matchSearch = c.title.toLowerCase().includes(search.toLowerCase()) || c.description?.toLowerCase().includes(search.toLowerCase());
+    const matchCat = activeCategory === "all" || c.category?.id?.toString() === activeCategory;
+    const matchDiff = activeDiff === "all" || c.difficulty_level === activeDiff;
+    const matchStatus = activeStatus === "all" || (activeStatus === "enrolled" && enr) || (activeStatus === "available" && !enr) || (activeStatus === "completed" && enr?.completed);
     return matchSearch && matchCat && matchDiff && matchStatus;
   });
 
-  // ─── Statistici rapide ────────────────────────────────────
   const enrolledCount  = enrollments.length;
   const completedCount = enrollments.filter((e) => e.completed).length;
   const availableCount = courses.length - enrolledCount;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">Se încarcă cursurile...</p>
+          <div className="w-10 h-10 border-4 border-cyan-200 border-t-cyan-500 rounded-full animate-spin" />
+          <p className="text-cyan-700 font-bold text-sm uppercase tracking-wider">Se încarcă catalogul...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-gray-50 text-gray-900 pb-12">
 
-      {/* Header */}
-      <div className="bg-gradient-to-br from-gray-900 via-blue-950/20 to-gray-900 border-b border-white/5 px-6 py-10">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-gray-500 text-xs mb-1 uppercase tracking-widest">E-Learning</p>
-          <h1 className="text-3xl font-bold mb-2">Biblioteca de cursuri</h1>
-          <p className="text-gray-400 text-sm mb-8">
-            {courses.length} cursuri disponibile · {enrolledCount} înscrise · {completedCount} finalizate
+      {/* Header Banner */}
+      <div className="bg-white border-b border-gray-100 px-6 py-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-50/50 to-transparent pointer-events-none" />
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-100 text-cyan-800 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
+            <span>🎓</span> E-Learning Platform
+          </div>
+          <h1 className="text-4xl font-extrabold mb-3 text-gray-900 tracking-tight">Biblioteca de Cursuri</h1>
+          <p className="text-gray-500 text-base mb-8 font-medium">
+            Explorează {courses.length} cursuri · Ai {enrolledCount} cursuri active · {completedCount} finalizate cu succes
           </p>
 
-          {/* Search bar mare */}
+          {/* Search bar */}
           <div className="relative max-w-2xl">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">🔍</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
             <input
               type="text"
-              placeholder="Caută cursuri după titlu sau descriere..."
+              placeholder="Caută cursuri după titlu sau subiect..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-white/8"
+              className="w-full bg-white border-2 border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-50 transition-all shadow-sm"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition font-bold"
               >
                 ✕
               </button>
@@ -239,33 +224,33 @@ export default function Cursuri() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 flex gap-8">
+      <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col lg:flex-row gap-10">
 
         {/* Sidebar filtre */}
-        <aside className="w-56 flex-shrink-0 space-y-6">
+        <aside className="w-full lg:w-64 flex-shrink-0 space-y-8">
 
           {/* Status */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Status</p>
-            <div className="space-y-1">
+            <p className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-4">Filtrează după Status</p>
+            <div className="space-y-1.5">
               {[
-                { key: "all",       label: "Toate cursurile", count: courses.length     },
-                { key: "enrolled",  label: "Înscrise",         count: enrolledCount      },
-                { key: "available", label: "Disponibile",      count: availableCount     },
-                { key: "completed", label: "Finalizate",       count: completedCount     },
+                { key: "all",       label: "Toate cursurile", count: courses.length },
+                { key: "enrolled",  label: "Înscrise",        count: enrolledCount  },
+                { key: "available", label: "Disponibile",     count: availableCount },
+                { key: "completed", label: "Finalizate",      count: completedCount },
               ].map(({ key, label, count }) => (
                 <button
                   key={key}
                   onClick={() => setActiveStatus(key)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition ${
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                     activeStatus === key
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-400 hover:bg-white/5 hover:text-white"
+                      ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/20"
+                      : "text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100"
                   }`}
                 >
                   <span>{label}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                    activeStatus === key ? "bg-white/20" : "bg-white/10"
+                  <span className={`text-xs px-2 py-0.5 rounded-lg ${
+                    activeStatus === key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
                   }`}>{count}</span>
                 </button>
               ))}
@@ -275,14 +260,12 @@ export default function Cursuri() {
           {/* Categorii */}
           {categories.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Categorii</p>
-              <div className="space-y-1">
+              <p className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-4">Categorii</p>
+              <div className="space-y-1.5">
                 <button
                   onClick={() => setActiveCategory("all")}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-sm transition ${
-                    activeCategory === "all"
-                      ? "bg-white/10 text-white"
-                      : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                    activeCategory === "all" ? "bg-cyan-50 text-cyan-700" : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-100"
                   }`}
                 >
                   Toate categoriile
@@ -291,10 +274,8 @@ export default function Cursuri() {
                   <button
                     key={cat.id}
                     onClick={() => setActiveCategory(cat.id.toString())}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-sm transition ${
-                      activeCategory === cat.id.toString()
-                        ? "bg-white/10 text-white"
-                        : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                      activeCategory === cat.id.toString() ? "bg-cyan-50 text-cyan-700" : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-100"
                     }`}
                   >
                     {cat.name}
@@ -306,26 +287,22 @@ export default function Cursuri() {
 
           {/* Nivel dificultate */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Nivel</p>
-            <div className="space-y-1">
+            <p className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-4">Dificultate</p>
+            <div className="space-y-1.5">
               <button
                 onClick={() => setActiveDiff("all")}
-                className={`w-full text-left px-3 py-2 rounded-xl text-sm transition ${
-                  activeDiff === "all"
-                    ? "bg-white/10 text-white"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  activeDiff === "all" ? "bg-cyan-50 text-cyan-700" : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-100"
                 }`}
               >
-                Toate nivelele
+                Orice nivel
               </button>
               {Object.entries(DIFFICULTY_LABELS).map(([key, { label }]) => (
                 <button
                   key={key}
                   onClick={() => setActiveDiff(key)}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-sm transition ${
-                    activeDiff === key
-                      ? "bg-white/10 text-white"
-                      : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                    activeDiff === key ? "bg-cyan-50 text-cyan-700" : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-100"
                   }`}
                 >
                   {label}
@@ -337,13 +314,8 @@ export default function Cursuri() {
           {/* Reset filtre */}
           {(search || activeCategory !== "all" || activeDiff !== "all" || activeStatus !== "all") && (
             <button
-              onClick={() => {
-                setSearch("");
-                setActiveCategory("all");
-                setActiveDiff("all");
-                setActiveStatus("all");
-              }}
-              className="w-full py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white text-xs transition hover:bg-white/5"
+              onClick={() => { setSearch(""); setActiveCategory("all"); setActiveDiff("all"); setActiveStatus("all"); }}
+              className="w-full py-3 rounded-xl border-2 border-gray-200 text-gray-500 font-bold hover:text-gray-900 hover:border-gray-300 hover:bg-white transition-all"
             >
               ✕ Resetează filtrele
             </button>
@@ -352,39 +324,22 @@ export default function Cursuri() {
 
         {/* Grid cursuri */}
         <div className="flex-1 min-w-0">
-
-          {/* Header rezultate */}
           <div className="flex items-center justify-between mb-6">
-            <p className="text-sm text-gray-400">
-              {filtered.length === courses.length
-                ? `${courses.length} cursuri`
-                : `${filtered.length} din ${courses.length} cursuri`}
-              {search && <span className="text-blue-400"> pentru „{search}"</span>}
+            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+              {filtered.length === courses.length ? `Afișez toate cele ${courses.length} cursuri` : `Am găsit ${filtered.length} rezultate`}
             </p>
           </div>
 
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <span className="text-6xl opacity-30">🔍</span>
-              <p className="text-gray-500">
-                {search
-                  ? `Nu am găsit cursuri pentru „${search}"`
-                  : "Nu există cursuri cu filtrele selectate"}
+            <div className="bg-white border border-gray-100 rounded-3xl flex flex-col items-center justify-center py-24 gap-4 shadow-sm">
+              <span className="text-6xl mb-2">🔍</span>
+              <p className="text-gray-900 font-bold text-lg">Niciun curs găsit</p>
+              <p className="text-gray-500 text-sm text-center max-w-sm">
+                Încearcă să modifici termenii căutării sau să resetezi filtrele din meniul lateral.
               </p>
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setActiveCategory("all");
-                  setActiveDiff("all");
-                  setActiveStatus("all");
-                }}
-                className="text-blue-400 hover:text-blue-300 text-sm transition"
-              >
-                Resetează filtrele
-              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filtered.map((course) => (
                 <CourseCard
                   key={course.id}

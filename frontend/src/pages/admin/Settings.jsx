@@ -1,225 +1,114 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import { GridSkeletons } from "../../components/SkeletonLoader";
 
 export default function AdminSettings() {
-  const { token } = useAuth();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalCourses: 0,
-    totalEnrollments: 0,
-    activeDepartments: 0,
-  });
+  const [stats, setStats] = useState({ totalUsers: 0, totalCourses: 0, totalEnrollments: 0, activeDepartments: 0 });
   const [chartData, setChartData] = useState([]);
   const [coursesData, setCoursesData] = useState([]);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useEffect(() => { fetchStats(); }, []);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
-      // Simulate fetching data
-      setStats({
-        totalUsers: 156,
-        totalCourses: 24,
-        totalEnrollments: 542,
-        activeDepartments: 8,
-      });
-
-      setChartData([
-        { name: "Python", value: 120, fill: "#3b82f6" },
-        { name: "JavaScript", value: 95, fill: "#8b5cf6" },
-        { name: "Web Dev", value: 87, fill: "#10b981" },
-        { name: "Data Science", value: 75, fill: "#f59e0b" },
-        { name: "DevOps", value: 65, fill: "#ef4444" },
-      ]);
-
-      setCoursesData([
-        { name: "Ian", enrollments: 42, completed: 18 },
-        { name: "Feb", enrollments: 55, completed: 28 },
-        { name: "Mar", enrollments: 48, completed: 22 },
-        { name: "Apr", enrollments: 78, completed: 45 },
-        { name: "Mai", enrollments: 92, completed: 58 },
-        { name: "Iun", enrollments: 85, completed: 52 },
-      ]);
-    } catch (err) {
-      console.error(err);
-      addToast("Eroare la încărcarea statisticilor", "error");
-    } finally {
-      setLoading(false);
-    }
+      setStats({ totalUsers: 156, totalCourses: 24, totalEnrollments: 542, activeDepartments: 8 });
+      setChartData([{ name: "Python", value: 120, fill: "#06b6d4" }, { name: "JavaScript", value: 95, fill: "#8b5cf6" }, { name: "Web Dev", value: 87, fill: "#10b981" }, { name: "Data Science", value: 75, fill: "#f59e0b" }, { name: "DevOps", value: 65, fill: "#ef4444" }]);
+      setCoursesData([{ name: "Ian", enrollments: 42, completed: 18 }, { name: "Feb", enrollments: 55, completed: 28 }, { name: "Mar", enrollments: 48, completed: 22 }, { name: "Apr", enrollments: 78, completed: 45 }, { name: "Mai", enrollments: 92, completed: 58 }, { name: "Iun", enrollments: 85, completed: 52 }]);
+    } catch { addToast("Eroare", "error"); } finally { setLoading(false); }
   };
 
-  if (loading) return <GridSkeletons count={6} />;
+  if (loading) return <div className="min-h-screen bg-gray-50 pt-12 max-w-7xl mx-auto"><GridSkeletons count={6} /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">⚙️ Setări Admin</h1>
-          <p className="text-gray-600">Gestionează și monitorizează platforma eLearning</p>
+    <div className="min-h-screen bg-gray-50 pb-12 animate-in fade-in duration-500">
+      <div className="bg-white border-b border-gray-100 px-6 py-10 relative overflow-hidden mb-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-50/50 via-white to-amber-50/30 pointer-events-none" />
+        <div className="max-w-7xl mx-auto relative z-10">
+          <p className="text-xs font-bold text-cyan-600 uppercase tracking-widest mb-1">Configurări Platformă</p>
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Setări Sistem</h1>
         </div>
+      </div>
 
+      <div className="max-w-7xl mx-auto px-6 space-y-8">
+        
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {[
-            { label: "Utilizatori Totali", value: stats.totalUsers, icon: "👥", color: "blue" },
-            { label: "Cursuri", value: stats.totalCourses, icon: "📚", color: "green" },
-            { label: "Înscrierii", value: stats.totalEnrollments, icon: "📝", color: "purple" },
-            { label: "Departamente", value: stats.activeDepartments, icon: "🏢", color: "orange" },
-          ].map((stat, i) => (
-            <div key={i} className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-600 text-sm">{stat.label}</h3>
-                <span className="text-3xl">{stat.icon}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[{ label: "Utilizatori", value: stats.totalUsers, icon: "👥", color: "text-blue-600" }, { label: "Cursuri", value: stats.totalCourses, icon: "📚", color: "text-green-600" }, { label: "Înscrieri", value: stats.totalEnrollments, icon: "📝", color: "text-purple-600" }, { label: "Departamente", value: stats.activeDepartments, icon: "🏢", color: "text-amber-600" }].map((stat, i) => (
+            <div key={i} className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-bold text-gray-500 uppercase tracking-wider text-xs">{stat.label}</h3>
+                <span className="text-2xl">{stat.icon}</span>
               </div>
-              <p className={`text-4xl font-bold text-${stat.color}-600`}>{stat.value}</p>
-              <p className="text-xs text-gray-500 mt-2">Total în sistem</p>
+              <p className={`text-4xl font-black ${stat.color}`}>{stat.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Top Courses */}
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">📊 Top Cursuri (Înscriieri)</h2>
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
+            <h2 className="text-xl font-extrabold text-gray-900 mb-6">📊 Top Cursuri (Înscrieri)</h2>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
+                <Pie data={chartData} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={90} dataKey="value">
+                  {chartData.map((e, i) => <Cell key={i} fill={e.fill} />)}
                 </Pie>
-                <Tooltip />
+                <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-
-          {/* Enrollment Trends */}
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">📈 Trend Înscriieri</h2>
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
+            <h2 className="text-xl font-extrabold text-gray-900 mb-6">📈 Trend Înscrieri</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={coursesData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="enrollments" fill="#3b82f6" name="Înscrierii" />
-                <Bar dataKey="completed" fill="#10b981" name="Finalizate" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: "#6b7280", fontWeight: 600 }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis tick={{ fill: "#6b7280", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: 20 }} />
+                <Bar dataKey="enrollments" fill="#06b6d4" name="Înscrieri" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                <Bar dataKey="completed" fill="#10b981" name="Finalizate" radius={[4, 4, 0, 0]} maxBarSize={30} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Settings Sections */}
+        {/* Setari Formulari */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* System Settings */}
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">🔧 Setări Sistem</h2>
-            <div className="space-y-6">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
+            <h2 className="text-xl font-extrabold text-gray-900 mb-6 border-b border-gray-50 pb-4">🔧 Profil Platformă</h2>
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Titlu Platformă
-                </label>
-                <input
-                  type="text"
-                  defaultValue="AI eLearning Platform"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Titlu Platformă</label>
+                <input type="text" defaultValue="AI eLearning Platform" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-sm text-gray-900 focus:outline-none focus:border-cyan-400 transition-all" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Admin
-                </label>
-                <input
-                  type="email"
-                  defaultValue="admin@elearning.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Email Admin</label>
+                <input type="email" defaultValue="admin@elearning.com" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-sm text-gray-900 focus:outline-none focus:border-cyan-400 transition-all" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Limba Implicită
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <option>Română</option>
-                  <option>Engleză</option>
-                  <option>Franceză</option>
-                </select>
-              </div>
-              <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-semibold">
-                💾 Salvează Schimbări
-              </button>
+              <button className="w-full mt-4 bg-gray-900 text-white font-extrabold py-3.5 rounded-xl hover:bg-gray-800 transition-all shadow-md shadow-gray-900/10">💾 Salvează Profilul</button>
             </div>
           </div>
 
-          {/* Security Settings */}
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">🔒 Setări Securitate</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-semibold text-gray-900">Autentificare cu Doi Factori</p>
-                  <p className="text-sm text-gray-600">Necesită 2FA pentru conturi admin</p>
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
+            <h2 className="text-xl font-extrabold text-gray-900 mb-6 border-b border-gray-50 pb-4">🔒 Securitate</h2>
+            <div className="space-y-3">
+              {[ { t: "2FA", s: "Necesită 2FA pentru admini" }, { t: "HTTPS Strict", s: "Forțează conexiuni securizate" }, { t: "Rate Limiting", s: "Limitează requesturile API" } ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl">
+                  <div>
+                    <p className="font-extrabold text-gray-900 text-sm">{item.t}</p>
+                    <p className="text-xs font-medium text-gray-500 mt-0.5">{item.s}</p>
+                  </div>
+                  <input type="checkbox" defaultChecked className="w-5 h-5 accent-cyan-500" />
                 </div>
-                <input type="checkbox" className="w-5 h-5" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-semibold text-gray-900">Sesiuni HTTPS</p>
-                  <p className="text-sm text-gray-600">Forțează conexiunile HTTPS</p>
-                </div>
-                <input type="checkbox" className="w-5 h-5" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-semibold text-gray-900">Rate Limiting</p>
-                  <p className="text-sm text-gray-600">Limitează cererile per IP</p>
-                </div>
-                <input type="checkbox" className="w-5 h-5" defaultChecked />
-              </div>
-              <button className="w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition font-semibold mt-4">
-                🔄 Resetează Sesiuni
-              </button>
+              ))}
+              <button className="w-full mt-4 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-extrabold py-3.5 rounded-xl transition-all">🔄 Resetează Sesiuni Active</button>
             </div>
-          </div>
-        </div>
-
-        {/* Maintenance Section */}
-        <div className="mt-8 bg-white rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">🛠️ Întreținere</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
-              <p className="font-semibold text-gray-900">📦 Backup Bază Date</p>
-              <p className="text-sm text-gray-600 mt-1">Creează backup complet</p>
-            </button>
-            <button className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
-              <p className="font-semibold text-gray-900">🗑️ Curață Cache</p>
-              <p className="text-sm text-gray-600 mt-1">Golește memoria cache</p>
-            </button>
-            <button className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
-              <p className="font-semibold text-gray-900">📊 Raport Sistem</p>
-              <p className="text-sm text-gray-600 mt-1">Generează raport detaliat</p>
-            </button>
           </div>
         </div>
       </div>

@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import PrivateRoute from "./components/PrivateRoute";
 import Navbar from "./components/Navbar";
+
+// Importuri Pagini
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -34,9 +36,11 @@ function DashboardRedirect() {
 function AppContent() {
   return (
     <Routes>
+      {/* Rute Publice (fără Navbar) */}
       <Route path="/login"    element={<Login />} />
       <Route path="/register" element={<Register />} />
 
+      {/* Rute Private (cu Navbar inclus) */}
       <Route
         path="/*"
         element={
@@ -45,56 +49,30 @@ function AppContent() {
             <Routes>
               {/* Redirect inteligent pe rol */}
               <Route path="/dashboard" element={<DashboardRedirect />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-              {/* Admin */}
-              <Route path="/admin/dashboard" element={
-                <PrivateRoute allowedRoles={["admin"]}><AdminDashboard /></PrivateRoute>
-              } />
-            <Route path="/admin/cursuri" element={
-  <PrivateRoute allowedRoles={["admin"]}><CursuriAdmin /></PrivateRoute>
-} />
-              <Route path="/admin/useri" element={
-                <PrivateRoute allowedRoles={["admin"]}><Useri /></PrivateRoute>
-              } />
-              <Route path="/admin/settings" element={
-                <PrivateRoute allowedRoles={["admin"]}><Settings /></PrivateRoute>
-              } />
+              {/* --- RUTE ADMIN --- */}
+              <Route path="/admin/dashboard" element={<PrivateRoute allowedRoles={["admin"]}><AdminDashboard /></PrivateRoute>} />
+              <Route path="/admin/cursuri" element={<PrivateRoute allowedRoles={["admin"]}><CursuriAdmin /></PrivateRoute>} />
+              <Route path="/admin/useri" element={<PrivateRoute allowedRoles={["admin"]}><Useri /></PrivateRoute>} />
+              <Route path="/admin/settings" element={<PrivateRoute allowedRoles={["admin"]}><Settings /></PrivateRoute>} />
+              <Route path="/admin/examene" element={<PrivateRoute allowedRoles={["admin", "manager"]}><Examene /></PrivateRoute>} />
+              <Route path="/admin/examene/:examId/editor" element={<PrivateRoute allowedRoles={["admin", "manager"]}><ExamEditor /></PrivateRoute>} />
 
-              {/* Manager / Profesor */}
-              <Route path="/manager/dashboard" element={
-                <PrivateRoute allowedRoles={["manager"]}><ManagerDashboard /></PrivateRoute>
-              } />
+              {/* --- RUTE MANAGER / PROFESOR --- */}
+              <Route path="/manager/dashboard" element={<PrivateRoute allowedRoles={["manager"]}><ManagerDashboard /></PrivateRoute>} />
 
-              {/* Student */}
-              <Route path="/student/dashboard" element={
-                <PrivateRoute allowedRoles={["student"]}><StudentDashboard /></PrivateRoute>
-              } />
-              <Route path="/cursuri" element={
-                <PrivateRoute allowedRoles={["student", "manager", "admin"]}>
-                  <Cursuri />
-                        </PrivateRoute>
-              } />
+              {/* --- RUTE STUDENT --- */}
+              <Route path="/student/dashboard" element={<PrivateRoute allowedRoles={["student"]}><StudentDashboard /></PrivateRoute>} />
 
-              {/* Comune */}
-              <Route path="/my-profile" element={
-                <PrivateRoute allowedRoles={["student", "manager", "admin"]}><Profile /></PrivateRoute>
-              } />
-              <Route path="/course/:courseId" element={
-                <PrivateRoute allowedRoles={["student", "manager"]}><CourseDetails /></PrivateRoute>
-              } />
-              <Route path="/my-exams" element={
-                <PrivateRoute allowedRoles={["student", "manager"]}><Exams /></PrivateRoute>
-              } />
-              <Route path="/quiz/:courseId" element={
-                <PrivateRoute allowedRoles={["student", "manager"]}><Quiz /></PrivateRoute>
-              } />
-                <Route path="/admin/examene" element={
-  <PrivateRoute allowedRoles={["admin", "manager"]}><Examene /></PrivateRoute>
-} />
-<Route path="/admin/examene/:examId/editor" element={
-  <PrivateRoute allowedRoles={["admin", "manager"]}><ExamEditor /></PrivateRoute>
-} />
-              {/* Fallback */}
+              {/* --- RUTE COMUNE --- */}
+              <Route path="/cursuri" element={<PrivateRoute allowedRoles={["student", "manager", "admin"]}><Cursuri /></PrivateRoute>} />
+              <Route path="/my-profile" element={<PrivateRoute allowedRoles={["student", "manager", "admin"]}><Profile /></PrivateRoute>} />
+              <Route path="/course/:courseId" element={<PrivateRoute allowedRoles={["student", "manager"]}><CourseDetails /></PrivateRoute>} />
+              <Route path="/my-exams" element={<PrivateRoute allowedRoles={["student", "manager"]}><Exams /></PrivateRoute>} />
+              <Route path="/quiz/:courseId" element={<PrivateRoute allowedRoles={["student", "manager"]}><Quiz /></PrivateRoute>} />
+
+              {/* Fallback pentru URL-uri greșite */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </>
@@ -104,7 +82,7 @@ function AppContent() {
   );
 }
 
-// ─── App root ─────────────────────────────────────────────────
+// ─── App Root ─────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>

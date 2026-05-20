@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 export default function Cursuri() {
-  const { token, logout } = useAuth();
-  const navigate = useNavigate();
+  const { token } = useAuth();
   const [courses, setCourses] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [title, setTitle] = useState("");
@@ -71,30 +70,31 @@ export default function Cursuri() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center shadow">
-        <h1 className="text-xl font-bold">AI eLearning — Admin</h1>
-        <div className="flex gap-4 items-center">
-          <button onClick={() => navigate("/admin/dashboard")} className="text-blue-200 hover:text-white text-sm">Dashboard</button>
-          <button onClick={() => navigate("/admin/useri")} className="text-blue-200 hover:text-white text-sm">Useri</button>
-          <button onClick={() => navigate("/admin/cursuri")} className="text-white font-semibold text-sm">Cursuri</button>
-          <button onClick={() => { logout(); navigate("/login"); }} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm">Deconectare</button>
+    <div className="min-h-screen bg-gray-50 pb-12 animate-in fade-in duration-500">
+      
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 px-6 py-10 relative overflow-hidden mb-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-50/50 to-transparent pointer-events-none" />
+        <div className="max-w-6xl mx-auto relative z-10">
+          <p className="text-xs font-bold text-cyan-600 uppercase tracking-widest mb-1">Panou de Control</p>
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Gestionare Cursuri</h1>
         </div>
-      </nav>
+      </div>
 
-      <div className="p-6 max-w-5xl mx-auto">
-        {success && <div className="bg-green-50 text-green-600 px-4 py-3 rounded-lg text-sm mb-4">{success}</div>}
-        {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm mb-4">{error}</div>}
+      <div className="px-6 max-w-6xl mx-auto space-y-6">
+        {success && <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2"><span>✓</span> {success}</div>}
+        {error && <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2"><span>⚠️</span> {error}</div>}
 
         {/* Modal editare departament */}
         {editCourse && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-              <h3 className="text-lg font-bold mb-4">Asignează departament: {editCourse.title}</h3>
+          <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md animate-in zoom-in-95">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Asignează departament</h3>
+              <p className="text-sm text-gray-500 mb-4 truncate">Curs: {editCourse.title}</p>
               <select
                 value={editDeptId}
-                onChange={(e) => setEditDeptId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                onChange={(e) => setDeptId(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-100 transition-all mb-5"
               >
                 <option value="">Selectează departament</option>
                 {departments.map((d) => (
@@ -102,135 +102,129 @@ export default function Cursuri() {
                 ))}
               </select>
               <div className="flex gap-3">
-                <button onClick={handleAssignDept} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg">Salvează</button>
-                <button onClick={() => setEditCourse(null)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-6 py-2 rounded-lg">Anulează</button>
+                <button onClick={handleAssignDept} className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-cyan-500/20">Salvează</button>
+                <button onClick={() => setEditCourse(null)} className="flex-1 bg-white border border-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 transition-all">Anulează</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Creare curs */}
-        <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Creare Curs Nou</h2>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <input
-              type="text"
-              placeholder="Titlu curs"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <textarea
-              placeholder="Descriere curs"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-            />
-            <select
-              value={deptId}
-              onChange={(e) => setDeptId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Selectează departament</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Formular Creare curs */}
+          <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 lg:col-span-1 h-fit">
+            <h2 className="text-lg font-extrabold text-gray-900 mb-5">Creare Curs Nou</h2>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Titlu Curs</label>
+                <input
+                  type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-100 transition-all"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Descriere</label>
+                <textarea
+                  value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-100 transition-all resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Departament</label>
+                <select
+                  value={deptId} onChange={(e) => setDeptId(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-100 transition-all"
+                >
+                  <option value="">Selectează departament</option>
+                  {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
 
-            {/* Upload PDF */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition">
-              <input
-                id="fileInput"
-                type="file"
-                accept=".pdf"
-                onChange={(e) => setFile(e.target.files[0])}
-                className="hidden"
-              />
-              <label htmlFor="fileInput" className="cursor-pointer">
-                {file ? (
-                  <div className="flex items-center justify-center gap-2 text-blue-600">
-                    <span>📄</span>
-                    <span className="font-medium">{file.name}</span>
-                    <span className="text-gray-400 text-xs">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                  </div>
-                ) : (
-                  <div className="text-gray-400">
-                    <p className="text-2xl mb-1">📁</p>
-                    <p className="text-sm">Click pentru a încărca un PDF <span className="text-blue-500">(opțional)</span></p>
-                  </div>
-                )}
-              </label>
+              {/* Upload PDF */}
+              <div className="border-2 border-dashed border-gray-200 bg-gray-50 rounded-xl p-5 text-center hover:border-cyan-400 hover:bg-cyan-50/30 transition-all cursor-pointer group">
+                <input id="fileInput" type="file" accept=".pdf" onChange={(e) => setFile(e.target.files[0])} className="hidden" />
+                <label htmlFor="fileInput" className="cursor-pointer block">
+                  {file ? (
+                    <div className="flex flex-col items-center gap-1 text-cyan-700">
+                      <span className="text-2xl mb-1">📄</span>
+                      <span className="font-bold text-sm truncate max-w-full px-2">{file.name}</span>
+                      <span className="text-gray-500 text-xs font-semibold">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 group-hover:text-cyan-600 transition-colors">
+                      <p className="text-2xl mb-2">📁</p>
+                      <p className="text-sm font-semibold">Încarcă un PDF de suport</p>
+                      <p className="text-xs text-gray-400 mt-1">(Opțional)</p>
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              <button type="submit" className="w-full bg-gray-900 hover:bg-gray-800 text-white font-extrabold py-3.5 rounded-xl transition-all shadow-md shadow-gray-900/10 mt-2">
+                Adaugă Cursul
+              </button>
+            </form>
+          </div>
+
+          {/* Lista cursuri */}
+          <div className="bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden lg:col-span-2">
+            <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
+              <h2 className="text-lg font-extrabold text-gray-900">Catalogul de Cursuri</h2>
             </div>
-
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition">
-              Crează Curs
-            </button>
-          </form>
-        </div>
-
-        {/* Lista cursuri */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Cursuri Existente</h2>
-          {courses.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nu există cursuri încă.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-gray-600">
-                  <th className="text-left px-4 py-3">Titlu</th>
-                  <th className="text-left px-4 py-3">Descriere</th>
-                  <th className="text-left px-4 py-3">Departament</th>
-                  <th className="text-left px-4 py-3">PDF</th>
-                  <th className="text-left px-4 py-3">Acțiuni</th>
-                </tr>
-              </thead>
-              <tbody>
-                {courses.map((c) => (
-                  <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{c.title}</td>
-                    <td className="px-4 py-3 text-gray-500">{c.description || "—"}</td>
-                    <td className="px-4 py-3">
-                      {c.department_name ? (
-                        <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">{c.department_name}</span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">Neasignat</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {c.file_path ? (
-                        <a
-                          href={`http://127.0.0.1:8000/${c.file_path}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-red-500 hover:text-red-700 text-xs font-medium flex items-center gap-1"
-                        >
-                          📄 Vezi PDF
-                        </a>
-                      ) : (
-                        <span className="text-gray-400 text-xs">Fără PDF</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 flex gap-3">
-                      <button
-                        onClick={() => { setEditCourse(c); setEditDeptId(c.department_id || ""); }}
-                        className="text-blue-500 hover:text-blue-700 text-xs font-medium"
-                      >
-                        Asignează dept.
-                      </button>
-                      <button
-                        onClick={() => handleDelete(c.id)}
-                        className="text-red-500 hover:text-red-700 text-xs font-medium"
-                      >
-                        Șterge
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+            
+            {courses.length === 0 ? (
+              <p className="text-gray-500 text-center py-12 font-medium">Nu există cursuri adăugate încă.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-500 uppercase tracking-wider bg-white border-b border-gray-100">
+                    <tr>
+                      <th className="px-6 py-4 font-bold">Informații Curs</th>
+                      <th className="px-6 py-4 font-bold">Departament</th>
+                      <th className="px-6 py-4 font-bold text-center">Atașament</th>
+                      <th className="px-6 py-4 font-bold text-right">Acțiuni</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {courses.map((c) => (
+                      <tr key={c.id} className="hover:bg-cyan-50/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-gray-900">{c.title}</p>
+                          <p className="text-xs text-gray-500 truncate max-w-[200px] mt-0.5">{c.description || "Fără descriere"}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          {c.department_name ? (
+                            <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg text-xs font-bold">{c.department_name}</span>
+                          ) : (
+                            <span className="text-gray-400 text-xs font-medium italic">Neasignat</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {c.file_path ? (
+                            <a href={`http://127.0.0.1:8000/${c.file_path}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors">
+                              📄 PDF
+                            </a>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-3">
+                            <button onClick={() => { setEditCourse(c); setEditDeptId(c.department_id || ""); }} className="text-cyan-600 hover:text-cyan-800 font-bold text-xs transition-colors">
+                              Setează Dept.
+                            </button>
+                            <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 font-bold text-xs transition-colors">
+                              Șterge
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
