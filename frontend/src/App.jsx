@@ -16,6 +16,8 @@ import Profile from "./pages/Profile";
 import CourseDetails from "./pages/CourseDetails";
 import Exams from "./pages/Exams";
 import Cursuri from "./pages/Cursuri";
+import Examene from "./pages/admin/Examene";
+import ExamEditor from "./pages/admin/ExamEditor";
 
 // ─── Component care redirectează /dashboard pe baza rolului ───
 function DashboardRedirect() {
@@ -86,7 +88,12 @@ function AppContent() {
               <Route path="/quiz/:courseId" element={
                 <PrivateRoute allowedRoles={["student", "manager"]}><Quiz /></PrivateRoute>
               } />
-
+                <Route path="/admin/examene" element={
+  <PrivateRoute allowedRoles={["admin", "manager"]}><Examene /></PrivateRoute>
+} />
+<Route path="/admin/examene/:examId/editor" element={
+  <PrivateRoute allowedRoles={["admin", "manager"]}><ExamEditor /></PrivateRoute>
+} />
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
