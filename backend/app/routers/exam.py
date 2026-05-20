@@ -6,7 +6,17 @@ SingleChoice, MultipleChoice, OpenText.
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, Field, validator
+from fastapi import APIRouter
+
+# Acesta este elementul cheie pe care îl caută FastAPI (app/main.py)
+router = APIRouter(prefix="/exams", tags=["Exams"])
+
+@router.get("/")
+def get_exams_test():
+    """Rută de test pentru a verifica dacă merge router-ul."""
+    return {"message": "Modulul de examene funcționează!"}
+
+from pydantic import BaseModel, Field, model_validator
 
 from app.models import QuestionType, ExamAttemptStatus
 
@@ -69,19 +79,21 @@ class ExamQuestionCreate(ExamQuestionBase):
     # Pentru SingleChoice/MultipleChoice trimitem și opțiunile la creare
     options: List[ExamQuestionOptionCreate] = []
 
-    @validator("options")
-    def validate_options(cls, options, values):
-        q_type = values.get("question_type")
+    @model_validator(mode='after')
+    def validate_options_and_type(self):
+        q_type = self.question_type
+        options = self.options
+
         if q_type == QuestionType.open_text:
             # OpenText nu are opțiuni
             if options:
                 raise ValueError("OpenText questions should not have options.")
-            return options
+            return self
 
         # SingleChoice & MultipleChoice trebuie să aibă cel puțin 2 opțiuni
         if len(options) < 2:
             raise ValueError(
-                f"{q_type.value} questions must have at least 2 options."
+                f"{q_type} questions must have at least 2 options."
             )
 
         correct_count = sum(1 for o in options if o.is_correct)
@@ -97,7 +109,7 @@ class ExamQuestionCreate(ExamQuestionBase):
                     "Multiple choice questions must have at least 1 correct option."
                 )
 
-        return options
+        return self
 
 
 class ExamQuestionUpdate(BaseModel):

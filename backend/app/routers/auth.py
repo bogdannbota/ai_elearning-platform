@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+
 from app.database import get_db
 from app.models import User, Department
-from app.schemas.auth import UserRegister, UserLogin, Token, UserResponse, TokenData
+from app.schemas.auth import UserRegister, UserLogin, Token, UserResponse
 from app.config import settings
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -23,7 +27,10 @@ def create_token(data: dict, expires_delta: timedelta) -> str:
     to_encode["exp"] = datetime.utcnow() + expires_delta
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-def get_current_user(token: str, db: Session):
+def get_current_user(
+    token: str = Depends(oauth2_scheme), 
+    db: Session = Depends(get_db)
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token invalid sau expirat",
@@ -41,6 +48,7 @@ def get_current_user(token: str, db: Session):
     if user is None:
         raise credentials_exception
     return user
+
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(data: UserRegister, db: Session = Depends(get_db)):
@@ -64,6 +72,7 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     return user
+
 
 @router.post("/login", response_model=Token)
 def login(data: UserLogin, db: Session = Depends(get_db)):
@@ -90,7 +99,7 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
         "user": user
     }
 
+
 @router.get("/me", response_model=UserResponse)
-def get_me(token: str, db: Session = Depends(get_db)):
-    user = get_current_user(token, db)
-    return user
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user

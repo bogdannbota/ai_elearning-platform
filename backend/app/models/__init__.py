@@ -21,7 +21,7 @@ from app.models.course import (
 )
 
 # Learning Plan
-from backend.app.models.learning_plans import (
+from app.models.learning_plans import (
     LearningPlan,
     LearningPlanItem,
     LearningPlanAssignment,
