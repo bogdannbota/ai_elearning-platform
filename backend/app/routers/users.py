@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
-from app.models.user import User, RoleEnum, Department
+from app.models import User, RoleEnum, Department
 from app.schemas.auth import UserResponse
 from app.routers.auth import get_current_user
 

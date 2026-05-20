@@ -1,13 +1,25 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Enum, DateTime, Float
+"""
+Modele pentru utilizatori și departamente.
+"""
+import enum
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Enum, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.database import Base
-import enum
+
 
 class RoleEnum(str, enum.Enum):
+    """
+    Rolurile disponibile în platformă:
+    - admin   = administratorul platformei (acces total)
+    - manager = profesor (creează cursuri, examene, planuri, corectează)
+    - student = cursant (parcurge cursuri, susține examene)
+    """
     admin = "admin"
     manager = "manager"
     student = "student"
+
 
 class Department(Base):
     __tablename__ = "departments"
@@ -16,7 +28,9 @@ class Department(Base):
     name = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Relationships
     users = relationship("User", back_populates="department")
+
 
 class User(Base):
     __tablename__ = "users"
@@ -30,38 +44,23 @@ class User(Base):
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Relationships
     department = relationship("Department", back_populates="users")
-
-class Course(Base):
-    __tablename__ = "courses"
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    file_path = Column(String, nullable=True)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    creator = relationship("User", foreign_keys=[created_by])
-    departments = relationship("DepartmentCourse", back_populates="course")
-
-class DepartmentCourse(Base):
-    __tablename__ = "department_courses"
-
-    id = Column(Integer, primary_key=True, index=True)
-    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
-
-    department = relationship("Department", foreign_keys=[department_id])
-    course = relationship("Course", back_populates="departments")
-
-class Enrollment(Base):
-    __tablename__ = "enrollments"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
-    progress_percent = Column(Float, default=0.0)
-    completed = Column(Boolean, default=False)
-    started_at = Column(DateTime(timezone=True), server_default=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Helper properties pentru verificare rol
+    @property
+    def is_admin(self) -> bool:
+        return self.role == RoleEnum.admin
+    
+    @property
+    def is_teacher(self) -> bool:
+        return self.role == RoleEnum.manager
+    
+    @property
+    def is_student(self) -> bool:
+        return self.role == RoleEnum.student
+    
+    @property
+    def can_create_content(self) -> bool:
+        """Admin și Profesor pot crea cursuri, examene, planuri."""
+        return self.role in (RoleEnum.admin, RoleEnum.manager)

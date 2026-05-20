@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel
 from datetime import datetime
 from app.database import get_db
-from app.models.user import RoleEnum, Enrollment
+from app.models import RoleEnum, Enrollment
 from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/progress", tags=["Progress"])

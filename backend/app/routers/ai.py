@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
-from app.models.user import Course, Enrollment
+from app.models import Course, Enrollment
 from app.routers.auth import get_current_user
 from app.config import settings
 from groq import Groq

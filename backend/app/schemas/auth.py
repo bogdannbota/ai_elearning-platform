@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
-from app.models.user import RoleEnum
+from app.models import RoleEnum
 
 class DepartmentBase(BaseModel):
     name: str

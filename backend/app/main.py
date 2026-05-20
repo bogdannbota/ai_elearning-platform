@@ -3,7 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.database import engine, Base
-from app.routers import auth, departments, users, courses, progress, ai
+from app.routers import (
+    auth, departments, users, courses, progress, ai,
+    exams, learning_plans, dashboard,
+)
 import os
 
 Base.metadata.create_all(bind=engine)
@@ -32,6 +35,9 @@ app.include_router(users.router)
 app.include_router(courses.router)
 app.include_router(progress.router)
 app.include_router(ai.router)
+app.include_router(exams.router)
+app.include_router(learning_plans.router)
+app.include_router(dashboard.router)
 
 # Servește frontend-ul
 if os.path.exists("static"):

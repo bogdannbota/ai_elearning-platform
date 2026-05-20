@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from app.database import get_db
-from app.models.user import Course, DepartmentCourse, RoleEnum, Department
+from app.models import Course, DepartmentCourse, RoleEnum, Department
 from app.routers.auth import get_current_user
 import shutil
 import os

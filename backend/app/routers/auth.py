@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.database import get_db
-from app.models.user import User, Department
+from app.models import User, Department
 from app.schemas.auth import UserRegister, UserLogin, Token, UserResponse, TokenData
 from app.config import settings
 
