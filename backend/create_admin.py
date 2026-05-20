@@ -32,7 +32,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ============================================
 # CONFIGURARE USER ADMIN - modifică dacă vrei
 # ============================================
-ADMIN_EMAIL = "admin@local.com"
+ADMIN_EMAIL = "bogdan.bota@icloud.com"
 ADMIN_PASSWORD = "Admin123!"
 ADMIN_FULL_NAME = "Administrator"
 ADMIN_ROLE = "admin"  # valorile posibile: admin, manager, student
