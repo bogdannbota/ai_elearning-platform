@@ -2,18 +2,27 @@ import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useToast } from "../../context/ToastContext";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { GridSkeletons } from "../../components/SkeletonLoader";
 
 export default function AdminDashboard() {
-  const { token, logout } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [stats, setStats] = useState({ users: 0, departments: 0, courses: 0, enrollments: 0 });
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterDept, setFilterDept] = useState("all");
+  const [chartData, setChartData] = useState([]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -34,8 +43,21 @@ export default function AdminDashboard() {
         courses: c.data.length,
         enrollments: e.data.length,
       });
+
+      // Prepare chart data
+      const chartData = c.data.slice(0, 6).map((course) => {
+        const courseEnrollments = e.data.filter((en) => en.course_id === course.id);
+        const completed = courseEnrollments.filter((en) => en.completed).length;
+        return {
+          name: course.title,
+          total: courseEnrollments.length,
+          completed: completed,
+        };
+      });
+      setChartData(chartData);
     } catch (err) {
       console.error(err);
+      addToast("Eroare la încărcarea datelor", "error");
     } finally {
       setLoading(false);
     }
@@ -43,182 +65,314 @@ export default function AdminDashboard() {
 
   const getCompletionRate = () => {
     if (enrollments.length === 0) return 0;
-    const completed = enrollments.filter(e => e.completed).length;
+    const completed = enrollments.filter((e) => e.completed).length;
     return Math.round((completed / enrollments.length) * 100);
   };
 
   const getUserProgress = (userId) => {
-    const userEnrollments = enrollments.filter(e => e.user_id === userId);
+    const userEnrollments = enrollments.filter((e) => e.user_id === userId);
     if (userEnrollments.length === 0) return null;
-    const avg = userEnrollments.reduce((sum, e) => sum + e.progress_percent, 0) / userEnrollments.length;
+    const avg =
+      userEnrollments.reduce((sum, e) => sum + e.progress_percent, 0) /
+      userEnrollments.length;
     return Math.round(avg);
   };
 
   const getCourseStats = (courseId) => {
-    const courseEnrollments = enrollments.filter(e => e.course_id === courseId);
-    const completed = courseEnrollments.filter(e => e.completed).length;
+    const courseEnrollments = enrollments.filter((e) => e.course_id === courseId);
+    const completed = courseEnrollments.filter((e) => e.completed).length;
     return { total: courseEnrollments.length, completed };
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <p className="text-gray-500 text-lg">Se încarcă...</p>
-    </div>
-  );
+  // Filtrare studenți
+  const filteredStudents = users
+    .filter((u) => u.role === "student")
+    .filter((u) => {
+      const matchesSearch =
+        u.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchTerm.toLowerCase());
+      if (filterDept === "all") return matchesSearch;
+      return u.department_id?.toString() === filterDept && matchesSearch;
+    });
+
+  const activeStudents = users.filter(
+    (u) => u.role === "student" && getUserProgress(u.id) !== null
+  ).length;
+
+  if (loading) return <GridSkeletons count={6} />;
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center shadow">
-        <h1 className="text-xl font-bold">AI eLearning — Admin</h1>
-        <div className="flex gap-4 items-center">
-          <button onClick={() => navigate("/admin/dashboard")} className="text-white font-semibold text-sm">Dashboard</button>
-          <button onClick={() => navigate("/admin/useri")} className="text-blue-200 hover:text-white text-sm">Useri</button>
-          <button onClick={() => navigate("/admin/cursuri")} className="text-blue-200 hover:text-white text-sm">Cursuri</button>
-          <button onClick={() => { logout(); navigate("/login"); }} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm">Deconectare</button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white py-12 px-4">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl font-bold mb-2">📊 Dashboard Admin</h1>
+          <p className="text-blue-100">Monitorizează activitatea platformei</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+            {[
+              {
+                label: "Total Useri",
+                value: stats.users,
+                icon: "👥",
+                change: "+12%",
+              },
+              {
+                label: "Departamente",
+                value: stats.departments,
+                icon: "🏢",
+                change: "N/A",
+              },
+              {
+                label: "Cursuri",
+                value: stats.courses,
+                icon: "📚",
+                change: "+3",
+              },
+              {
+                label: "Rată Finalizare",
+                value: `${getCompletionRate()}%`,
+                icon: "🎯",
+                change: "+5%",
+              },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="bg-white bg-opacity-10 rounded-lg p-6 backdrop-blur"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-blue-100 text-sm">{s.label}</p>
+                  <span className="text-3xl">{s.icon}</span>
+                </div>
+                <p className="text-4xl font-bold">{s.value}</p>
+                <p className="text-blue-200 text-xs mt-2">{s.change}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </nav>
+      </div>
 
       <div className="p-6 max-w-7xl mx-auto">
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          {/* Enrollment per Course */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">📈 Înscrierii pe Curs</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="total" fill="#3b82f6" name="Total" />
+                <Bar dataKey="completed" fill="#10b981" name="Finalizate" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: "Total Useri", value: stats.users, color: "bg-blue-500", icon: "👥" },
-            { label: "Departamente", value: stats.departments, color: "bg-purple-500", icon: "🏢" },
-            { label: "Cursuri", value: stats.courses, color: "bg-green-500", icon: "📚" },
-            { label: "Rată Finalizare", value: `${getCompletionRate()}%`, color: "bg-orange-500", icon: "🎯" },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl shadow p-5 flex items-center gap-4">
-              <div className={`${s.color} text-white text-2xl w-12 h-12 rounded-lg flex items-center justify-center`}>{s.icon}</div>
-              <div>
-                <p className="text-gray-500 text-xs">{s.label}</p>
-                <p className="text-2xl font-bold text-gray-800">{s.value}</p>
+          {/* Active Users */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">📊 Statistici Utilizatori</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                <div>
+                  <p className="text-sm text-gray-600">Utilizatori Activi</p>
+                  <p className="text-2xl font-bold text-blue-600">{activeStudents}</p>
+                </div>
+                <span className="text-4xl">📌</span>
+              </div>
+              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                <div>
+                  <p className="text-sm text-gray-600">Cursuri Finalizate</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {enrollments.filter((e) => e.completed).length}
+                  </p>
+                </div>
+                <span className="text-4xl">✅</span>
+              </div>
+              <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
+                <div>
+                  <p className="text-sm text-gray-600">Progres Mediu</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {enrollments.length > 0
+                      ? Math.round(
+                          enrollments.reduce((s, e) => s + e.progress_percent, 0) /
+                            enrollments.length
+                        )
+                      : 0}
+                    %
+                  </p>
+                </div>
+                <span className="text-4xl">📊</span>
               </div>
             </div>
-          ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Progres per User */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-12">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">👥 Progres Studenți</h2>
 
-          {/* Progres per User */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">📊 Progres Useri</h2>
-            {users.filter(u => u.role === "student").length === 0 ? (
-              <p className="text-gray-400 text-sm">Nu există studenți înregistrați.</p>
-            ) : (
-              <div className="space-y-3">
-                {users.filter(u => u.role === "student").map((u) => {
-                  const progress = getUserProgress(u.id);
-                  const dept = departments.find(d => d.id === u.department_id)?.name || "—";
-                  return (
-                    <div key={u.id} className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                        {u.full_name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm font-medium text-gray-700 truncate">{u.full_name}</span>
-                          <span className="text-xs text-gray-400 ml-2">{dept}</span>
-                        </div>
-                        {progress !== null ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${progress === 100 ? "bg-green-500" : "bg-blue-500"}`}
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-medium text-gray-600 w-8">{progress}%</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400">Nicio înscriere</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {/* Search și Filter */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <input
+              type="text"
+              placeholder="🔍 Caută student..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <select
+              value={filterDept}
+              onChange={(e) => setFilterDept(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Toate Departamentele</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            <div className="text-sm text-gray-600 flex items-center">
+              {filteredStudents.length} studenți
+            </div>
           </div>
 
-          {/* Statistici Cursuri */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">📚 Statistici Cursuri</h2>
-            {courses.length === 0 ? (
-              <p className="text-gray-400 text-sm">Nu există cursuri.</p>
-            ) : (
-              <div className="space-y-4">
-                {courses.map((c) => {
-                  const { total, completed } = getCourseStats(c.id);
-                  const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
-                  return (
-                    <div key={c.id}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium text-gray-700">{c.title}</span>
-                        <span className="text-xs text-gray-400">{completed}/{total} finalizați</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
+          {filteredStudents.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center py-8">
+              {searchTerm || filterDept !== "all"
+                ? "Nu au fost găsiți studenți."
+                : "Nu există studenți înregistrați."}
+            </p>
+          ) : (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {filteredStudents.map((u) => {
+                const progress = getUserProgress(u.id);
+                const dept =
+                  departments.find((d) => d.id === u.department_id)?.name || "—";
+                return (
+                  <div
+                    key={u.id}
+                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center font-bold shrink-0">
+                      {u.full_name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">
+                        {u.full_name}
+                      </p>
+                      <p className="text-xs text-gray-600">{dept}</p>
+                    </div>
+                    {progress !== null ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-32 bg-gray-200 rounded-full h-2">
                           <div
-                            className={`h-2 rounded-full ${rate === 100 ? "bg-green-500" : "bg-purple-500"}`}
-                            style={{ width: `${rate}%` }}
+                            className={`h-2 rounded-full ${
+                              progress === 100 ? "bg-green-500" : "bg-blue-500"
+                            }`}
+                            style={{ width: `${progress}%` }}
                           />
                         </div>
-                        <span className="text-xs font-medium text-gray-600 w-8">{rate}%</span>
+                        <span className="text-sm font-semibold text-gray-700 w-12 text-right">
+                          {progress}%
+                        </span>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    ) : (
+                      <span className="text-xs text-gray-400 w-32 text-right">
+                        Fără progres
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Tabel Enrollments */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">📋 Toate Înscrierile</h2>
+        {/* Tabel Înscrierii */}
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div className="px-6 py-4 bg-gradient-to-r from-blue-900 to-indigo-900 text-white">
+            <h2 className="text-xl font-bold">📋 Toate Înscrierile</h2>
+          </div>
+
           {enrollments.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-4">Nu există înscrieri.</p>
+            <p className="text-gray-400 text-sm text-center py-8">Nu există înscrieri.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-gray-600">
-                  <th className="text-left px-4 py-3">Student</th>
-                  <th className="text-left px-4 py-3">Curs</th>
-                  <th className="text-left px-4 py-3">Progres</th>
-                  <th className="text-left px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enrollments.map((e) => {
-                  const user = users.find(u => u.id === e.user_id);
-                  const course = courses.find(c => c.id === e.course_id);
-                  return (
-                    <tr key={e.id} className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium">{user?.full_name || "—"}</td>
-                      <td className="px-4 py-3 text-gray-500">{course?.title || "—"}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${e.progress_percent === 100 ? "bg-green-500" : "bg-blue-500"}`}
-                              style={{ width: `${e.progress_percent}%` }}
-                            />
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-6 py-3 font-semibold text-gray-900">
+                      Student
+                    </th>
+                    <th className="text-left px-6 py-3 font-semibold text-gray-900">
+                      Curs
+                    </th>
+                    <th className="text-center px-6 py-3 font-semibold text-gray-900">
+                      Progres
+                    </th>
+                    <th className="text-center px-6 py-3 font-semibold text-gray-900">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {enrollments.slice(0, 10).map((e) => {
+                    const user = users.find((u) => u.id === e.user_id);
+                    const course = courses.find((c) => c.id === e.course_id);
+                    return (
+                      <tr
+                        key={e.id}
+                        className="border-b border-gray-200 hover:bg-gray-50"
+                      >
+                        <td className="px-6 py-3 font-medium text-gray-900">
+                          {user?.full_name || "—"}
+                        </td>
+                        <td className="px-6 py-3 text-gray-600">
+                          {course?.title || "—"}
+                        </td>
+                        <td className="px-6 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  e.progress_percent === 100
+                                    ? "bg-green-500"
+                                    : "bg-blue-500"
+                                }`}
+                                style={{ width: `${e.progress_percent}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-semibold text-gray-700 w-10 text-right">
+                              {e.progress_percent}%
+                            </span>
                           </div>
-                          <span className="text-xs text-gray-600">{e.progress_percent}%</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${e.completed ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                          {e.completed ? "✅ Finalizat" : "⏳ În progres"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="px-6 py-3 text-center">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              e.completed
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {e.completed ? "✓ Finalizat" : "⏳ În Progres"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
+
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
+            Afișare 1-10 din {enrollments.length} înscrierii
+          </div>
         </div>
       </div>
     </div>
