@@ -34,12 +34,13 @@ export default function Navbar() {
   const isManager = user?.role === "manager";
   const isStudent = user?.role === "student";
 
-  const adminLinks = [
-    { path: "/admin/dashboard", label: "Dashboard",    icon: "🏠" },
-    { path: "/admin/cursuri",   label: "Cursuri",      icon: "📚" },
-    { path: "/admin/useri",     label: "Utilizatori",  icon: "👥" },
-    { path: "/admin/settings",  label: "Setări",       icon: "⚙️" },
-  ];
+const adminLinks = [
+  { path: "/admin/dashboard",  label: "Dashboard",    icon: "🏠" },
+  { path: "/admin/cursuri",    label: "Cursuri",      icon: "📚" },
+  { path: "/admin/examene",    label: "Examene",      icon: "📝" },
+  { path: "/admin/useri",      label: "Utilizatori",  icon: "👥" },
+  { path: "/admin/settings",   label: "Setări",       icon: "⚙️" },
+];
 
   const managerLinks = [
     { path: "/manager/dashboard", label: "Dashboard",  icon: "🏠" },

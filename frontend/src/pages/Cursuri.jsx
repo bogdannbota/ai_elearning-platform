@@ -14,10 +14,11 @@ const DIFFICULTY_LABELS = {
 };
 
 // ─── Course Card ─────────────────────────────────────────────
-function CourseCard({ course, enrollment, onEnroll, onView }) {
+function CourseCard({ course, enrollment, categories, onEnroll, onView }) {
   const progress  = enrollment?.progress_percent ?? 0;
   const completed = enrollment?.completed ?? false;
   const diff      = DIFFICULTY_LABELS[course.difficulty_level] ?? DIFFICULTY_LABELS.beginner;
+  const category  = categories.find((c) => c.id === course.category_id);
 
   return (
     <div
@@ -35,11 +36,11 @@ function CourseCard({ course, enrollment, onEnroll, onView }) {
         ) : (
           <span className="text-6xl opacity-20 transform group-hover:scale-110 transition-transform duration-500">📚</span>
         )}
-        
+
         {/* Badge categorie */}
-        {course.category && (
+        {category && (
           <span className="absolute top-3 left-3 px-3 py-1 bg-white/90 text-gray-800 text-xs font-bold rounded-full backdrop-blur-sm shadow-sm">
-            {course.category.name}
+            {category.name}
           </span>
         )}
         {/* Badge finalizat */}
@@ -130,20 +131,14 @@ export default function Cursuri() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [cRes, eRes] = await Promise.all([
+      const [cRes, eRes, catRes] = await Promise.all([
         axios.get(`${API}/courses/?token=${token}`),
         axios.get(`${API}/progress/my-courses?token=${token}`),
+        axios.get(`${API}/course-categories/?token=${token}`),
       ]);
       setCourses(cRes.data);
       setEnrollments(eRes.data);
-
-      const cats = [];
-      cRes.data.forEach((c) => {
-        if (c.category && !cats.find((x) => x.id === c.category.id)) {
-          cats.push(c.category);
-        }
-      });
-      setCategories(cats);
+      setCategories(catRes.data);
     } catch {
       addToast("Eroare la încărcarea cursurilor", "error");
     } finally {
@@ -166,7 +161,7 @@ export default function Cursuri() {
   const filtered = courses.filter((c) => {
     const enr = getEnrollment(c.id);
     const matchSearch = c.title.toLowerCase().includes(search.toLowerCase()) || c.description?.toLowerCase().includes(search.toLowerCase());
-    const matchCat = activeCategory === "all" || c.category?.id?.toString() === activeCategory;
+    const matchCat = activeCategory === "all" || c.category_id?.toString() === activeCategory;
     const matchDiff = activeDiff === "all" || c.difficulty_level === activeDiff;
     const matchStatus = activeStatus === "all" || (activeStatus === "enrolled" && enr) || (activeStatus === "available" && !enr) || (activeStatus === "completed" && enr?.completed);
     return matchSearch && matchCat && matchDiff && matchStatus;
@@ -345,6 +340,7 @@ export default function Cursuri() {
                   key={course.id}
                   course={course}
                   enrollment={getEnrollment(course.id)}
+                  categories={categories}
                   onEnroll={handleEnroll}
                   onView={(id) => navigate(`/course/${id}`)}
                 />

@@ -5,6 +5,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.database import engine, Base
+from app.routers import (
+    auth, departments, users, courses, progress, ai,
+    learning_plans, dashboard, exam,
+    course_categories, course_modules,
+)
+Base.metadata.create_all(bind=engine)
+
+from app.database import engine, Base
 
 # Am adus 'exam' aici, împreună cu restul routerelor, și am eliminat 'backend.'
 from app.routers import (
@@ -41,6 +49,8 @@ app.include_router(ai.router)
 app.include_router(exam.router)
 app.include_router(learning_plans.router)
 app.include_router(dashboard.router)
+app.include_router(course_categories.router)
+app.include_router(course_modules.router)
 
 # Servește frontend-ul
 if os.path.exists("static"):
