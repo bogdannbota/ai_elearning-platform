@@ -8,18 +8,27 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedToken = sessionStorage.getItem("token");
-    const savedUser = sessionStorage.getItem("user");
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+    try {
+      const savedToken = sessionStorage.getItem("token");
+      const savedUser = sessionStorage.getItem("user");
+
+      if (savedToken) setToken(savedToken);
+
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    } catch (err) {
+      console.error("Auth restore error:", err);
+      sessionStorage.clear();
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = (tokenData, userData) => {
     setToken(tokenData);
     setUser(userData);
+
     sessionStorage.setItem("token", tokenData);
     sessionStorage.setItem("user", JSON.stringify(userData));
   };
@@ -27,12 +36,22 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setToken(null);
     setUser(null);
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("user");
+    sessionStorage.clear();
   };
 
+  const isAuthenticated = !!token;
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        logout,
+        loading,
+        isAuthenticated,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
