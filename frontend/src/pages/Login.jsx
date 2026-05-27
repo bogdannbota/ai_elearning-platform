@@ -25,7 +25,6 @@ export default function Login() {
 
     try {
       const res = await api.post("/auth/login", { email, password });
-
       const payload = res.data?.data ?? res.data;
 
       if (!payload?.access_token || !payload?.user) {
@@ -33,9 +32,7 @@ export default function Login() {
       }
 
       login(payload.access_token, payload.user);
-
       navigate(getRedirectPath(payload.user.role), { replace: true });
-
     } catch (err) {
       setError(
         err?.response?.data?.detail ||
@@ -49,42 +46,86 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow p-8">
+    <div className="relative min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-8 font-sans overflow-hidden selection:bg-cyan-200 selection:text-cyan-900">
+      
+      {/* Element decorativ de fundal (Glow / Spatial UI) */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] bg-cyan-400/20 rounded-full blur-[120px] pointer-events-none" />
 
-        <h1 className="text-2xl font-bold mb-6 text-center">
-          Login
-        </h1>
+      {/* Cardul de Login - Glassmorphism rafinat */}
+      <div className="relative z-10 w-full max-w-md backdrop-blur-xl bg-white/70 border border-white/80 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] rounded-[2rem] p-8 sm:p-10 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)]">
+        
+        <div className="mb-8 text-center space-y-2">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600">
+            Bun venit
+          </h1>
+          <p className="text-slate-500 text-sm font-medium">
+            Conectează-te la contul tău
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          
+          {/* Input Email */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-slate-700 ml-1 block">
+              Adresă de email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="nume@exemplu.ro"
+              className="w-full bg-white/50 border border-slate-200 text-slate-900 placeholder-slate-400 p-3.5 rounded-2xl outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15 transition-all duration-300"
+              required
+            />
+          </div>
 
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full border p-3 rounded-lg"
-            required
-          />
+          {/* Input Parolă */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-slate-700 ml-1 block">
+              Parolă
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-white/50 border border-slate-200 text-slate-900 placeholder-slate-400 p-3.5 rounded-2xl outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15 transition-all duration-300"
+              required
+            />
+          </div>
 
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Parolă"
-            className="w-full border p-3 rounded-lg"
-            required
-          />
-
+          {/* Mesaj de eroare modernizat */}
           {error && (
-            <p className="text-red-500 text-sm">{error}</p>
+            <div className="p-4 bg-red-50/80 border border-red-100 text-red-600 text-sm rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 shrink-0 mt-0.5 text-red-500">
+                <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium leading-tight">{error}</span>
+            </div>
           )}
 
+          {/* Buton principal cu stări avansate */}
           <button
             disabled={loading}
-            className="w-full bg-cyan-500 text-white p-3 rounded-lg"
+            className="w-full relative group overflow-hidden bg-slate-900 text-white font-semibold p-4 rounded-2xl shadow-lg shadow-slate-900/20 hover:shadow-slate-900/30 active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
           >
-            {loading ? "Se încarcă..." : "Intră în cont"}
+            {/* Suprapunere gradient pentru efect la hover */}
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            
+            <span className="relative flex items-center justify-center gap-2">
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white/80" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Se autentifică...</span>
+                </>
+              ) : (
+                "Intră în cont"
+              )}
+            </span>
           </button>
 
         </form>
