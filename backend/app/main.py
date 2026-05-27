@@ -1,23 +1,15 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.database import engine, Base
+
 from app.routers import (
     auth, departments, users, courses, progress, ai,
     learning_plans, dashboard, exam,
     course_categories, course_modules,
-)
-Base.metadata.create_all(bind=engine)
-
-from app.database import engine, Base
-
-# Am adus 'exam' aici, împreună cu restul routerelor, și am eliminat 'backend.'
-from app.routers import (
-    auth, departments, users, courses, progress, ai,
-    learning_plans, dashboard, exam
 )
 
 Base.metadata.create_all(bind=engine)
@@ -38,8 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
+# routers
 app.include_router(auth.router)
 app.include_router(departments.router)
 app.include_router(users.router)
@@ -52,14 +43,24 @@ app.include_router(dashboard.router)
 app.include_router(course_categories.router)
 app.include_router(course_modules.router)
 
-# Servește frontend-ul
+# static
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 if os.path.exists("static"):
     app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
-
-    @app.get("/vite.svg")
-    def vite_svg():
-        return FileResponse("static/vite.svg")
 
     @app.get("/{full_path:path}")
     def serve_frontend(full_path: str):
         return FileResponse("static/index.html")
+
+
+@app.exception_handler(Exception)
+async def global_error_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "data": None,
+            "error": str(exc)
+        }
+    )

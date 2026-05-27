@@ -20,12 +20,7 @@ def extract_pdf_text(file_path: str) -> str:
                 if len(text) >= MAX_PDF_CHARS:
                     break
 
-        text = text[:MAX_PDF_CHARS]
-
-        if " " in text:
-            text = text.rsplit(" ", 1)[0]
-
-        return text.strip()
+        return text[:MAX_PDF_CHARS].strip()
 
     except Exception:
         return ""
@@ -38,11 +33,7 @@ def get_course_context(course) -> str:
     pdf_text = extract_pdf_text(course.file_path)
 
     if pdf_text:
-        context += (
-            "\n=== CONTEXT CURS START ===\n"
-            f"{pdf_text}\n"
-            "=== CONTEXT CURS END ===\n"
-        )
+        context += f"\n=== CONTEXT CURS ===\n{pdf_text}\n"
 
     return context
 
@@ -54,11 +45,10 @@ def chunk_text(text: str, size: int = 1000):
 def simple_retrieve(chunks, query: str, top_k: int = 3):
     query_words = set(query.lower().split())
 
-    scored = []
-
-    for chunk in chunks:
-        score = sum(1 for w in query_words if w in chunk.lower())
-        scored.append((score, chunk))
+    scored = [
+        (sum(1 for w in query_words if w in c.lower()), c)
+        for c in chunks
+    ]
 
     scored.sort(reverse=True, key=lambda x: x[0])
 

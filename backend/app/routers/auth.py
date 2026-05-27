@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models import User, Department
 from app.schemas.auth import UserRegister, UserLogin, Token, UserResponse
 from app.config import settings
+from app.schemas.common import APIResponse
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
