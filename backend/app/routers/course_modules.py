@@ -11,6 +11,9 @@ Endpoint-uri:
 """
 import os
 import shutil
+import uuid
+
+from fastapi import UploadFile
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -34,8 +37,14 @@ os.makedirs(MODULES_DIR, exist_ok=True)
 # ============================================================
 
 def _save_module_attachment(file: UploadFile, module_id: int) -> str:
-    safe_name = file.filename.replace(" ", "_")
-    rel_path = os.path.join("modules", f"mod{module_id}_{safe_name}")
+    if not file or not file.filename:
+        return None
+        
+    ext = os.path.splitext(file.filename)[1].lower()
+    # Păstrăm prefixul cu mod{id}_ dar adăugăm un UUID pentru siguranță
+    safe_name = f"mod{module_id}_{uuid.uuid4().hex}{ext}"
+    rel_path = os.path.join("modules", safe_name)
+    
     full_path = os.path.join(UPLOAD_DIR, rel_path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     with open(full_path, "wb") as buf:

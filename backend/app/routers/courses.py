@@ -13,6 +13,9 @@ Endpointuri:
 """
 import os
 import shutil
+import uuid
+
+from fastapi import UploadFile
 from typing import List, Optional
 from decimal import Decimal
 
@@ -41,18 +44,24 @@ os.makedirs(FILES_DIR, exist_ok=True)
 # Helpers
 # ============================================================
 
-def _save_upload(file: UploadFile, subdir: str, prefix: str) -> str:
-    """Salvează un fișier încărcat și returnează path-ul relativ."""
+def _save_upload_secure(file: UploadFile, subdir: str) -> str:
     if not file or not file.filename:
         return None
-    safe_name = file.filename.replace(" ", "_")
-    rel_path = os.path.join(subdir, f"{prefix}_{safe_name}")
-    full_path = os.path.join(UPLOAD_DIR, rel_path) if not rel_path.startswith(UPLOAD_DIR) else rel_path
-    # rel_path conține deja "covers/..." sau "courses/...", deci full_path = uploads/<rel_path>
-    full_path = os.path.join(UPLOAD_DIR, rel_path)
+        
+    # Extragem extensia fișierului în siguranță (ex: '.pdf', '.png')
+    ext = os.path.splitext(file.filename)[1].lower()
+    
+    # Generăm un identificator unic garantat
+    safe_name = f"{uuid.uuid4().hex}{ext}"
+    
+    # Construim calea
+    rel_path = os.path.join(subdir, safe_name)
+    full_path = os.path.join("uploads", rel_path)
+    
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     with open(full_path, "wb") as buf:
         shutil.copyfileobj(file.file, buf)
+        
     return full_path.replace("\\", "/")
 
 
@@ -78,6 +87,8 @@ def _get_course_or_404(db: Session, course_id: int) -> Course:
 @router.get("/", response_model=List[CourseResponse])
 def list_courses(
     token: str,
+    skip: int = 0,               
+    limit: int = 100,            
     db: Session = Depends(get_db),
     only_published: bool = False,
     category_id: Optional[int] = None,
@@ -115,7 +126,7 @@ def list_courses(
             # Există mapări, dar nu pentru departamentul lui -> nu vede nimic
             return []
 
-    return query.order_by(Course.display_order, Course.created_at.desc()).all()
+    return query.order_by(Course.display_order, Course.created_at.desc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{course_id}", response_model=CourseDetailResponse)
@@ -174,19 +185,19 @@ def create_course(
         if not cat:
             raise HTTPException(status_code=404, detail="Categoria nu există")
 
-    # Salvăm fișierele
+    # Salvăm fișierele cu logica securizată
     file_path = None
     cover_path = None
     if file and file.filename:
         if not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Doar PDF acceptat pentru fișier curs")
-        file_path = _save_upload(file, "courses", title.replace(" ", "_")[:50])
+        file_path = _save_upload_secure(file, "courses")
 
     if cover_image and cover_image.filename:
         allowed = (".jpg", ".jpeg", ".png", ".webp", ".gif")
         if not cover_image.filename.lower().endswith(allowed):
             raise HTTPException(status_code=400, detail="Cover trebuie să fie imagine")
-        cover_path = _save_upload(cover_image, "covers", title.replace(" ", "_")[:50])
+        cover_path = _save_upload_secure(cover_image, "covers")
 
     course = Course(
         title=title,
@@ -266,19 +277,19 @@ def update_course(
     if display_order is not None:
         course.display_order = display_order
 
-    # Înlocuim fișierele dacă au venit altele noi
+    # Înlocuim fișierele dacă au venit altele noi cu logica securizată
     if file and file.filename:
         if not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Doar PDF acceptat")
         _delete_file_safe(course.file_path)
-        course.file_path = _save_upload(file, "courses", course.title.replace(" ", "_")[:50])
+        course.file_path = _save_upload_secure(file, "courses")
 
     if cover_image and cover_image.filename:
         allowed = (".jpg", ".jpeg", ".png", ".webp", ".gif")
         if not cover_image.filename.lower().endswith(allowed):
             raise HTTPException(status_code=400, detail="Cover trebuie să fie imagine")
         _delete_file_safe(course.cover_image_path)
-        course.cover_image_path = _save_upload(cover_image, "covers", course.title.replace(" ", "_")[:50])
+        course.cover_image_path = _save_upload_secure(cover_image, "covers")
 
     db.commit()
     db.refresh(course)
