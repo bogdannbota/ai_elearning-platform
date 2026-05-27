@@ -1,168 +1,155 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { api } from "../api/axios";
 
-export default function Register() {
-  const navigate = useNavigate();
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", confirm_password: "" });
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const getRedirectPath = (role) => {
+    if (role === "admin") return "/admin/dashboard";
+    if (role === "manager") return "/manager/dashboard";
+    return "/student/dashboard";
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     setError("");
 
-    if (form.password !== form.confirm_password) {
-      setError("Parolele nu coincid!");
-      return;
-    }
-    if (form.password.length < 6) {
-      setError("Parola trebuie să aibă minim 6 caractere!");
-      return;
-    }
-
-    setLoading(true);
     try {
-      await axios.post(
-        "http://127.0.0.1:8000/auth/register",
-        {
-          full_name: form.full_name,
-          email: form.email,
-          password: form.password,
-          role: "student",
-        },
-        { headers: { "Content-Type": "application/json" } }
-      );
-      setSuccess("Cont creat cu succes! Te vom redirecționa imediat...");
-      setTimeout(() => navigate("/login"), 2000);
+      const res = await api.post("/auth/login", { email, password });
+      const payload = res.data?.data ?? res.data;
+
+      if (!payload?.access_token || !payload?.user) {
+        throw new Error("Răspuns invalid de la server");
+      }
+
+      login(payload.access_token, payload.user);
+      navigate(getRedirectPath(payload.user.role), { replace: true });
     } catch (err) {
-      setError(err.response?.data?.detail || "Eroare la înregistrare");
+      setError(
+        err?.response?.data?.detail ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Email sau parolă incorectă"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="relative min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-8 font-sans overflow-hidden selection:bg-cyan-200 selection:text-cyan-900">
       
-      {/* Background Subtle Gradient & Pattern */}
-      <div className="absolute inset-0 bg-white" style={{ backgroundImage: "linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%)" }} />
-      <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM2YmI4YTMiIGZpbGwtb3BhY2l0eT0iMC41Ij48cGF0aCBkPSJNMCAwaDQwdjQwSDBWMHptMjAgMjBoMjB2MjBIMjBWMjB6TTAgMjBoMjB2MjBIMFYyMHoyMCAwaDIwdjIwSDIwVjB6Ii8+PC9nPjwvZz48L3N2Zz4=')" }} />
+      {/* Element decorativ de fundal (Glow / Spatial UI) */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] bg-cyan-400/20 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500 z-10">
+      {/* Cardul de Login */}
+      <div className="relative z-10 w-full max-w-md bg-white border border-slate-100 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] rounded-[2rem] p-8 sm:p-10 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)]">
         
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-300 to-cyan-400 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-amber-500/10">
-            <span className="text-3xl">🚀</span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Începe călătoria</h1>
-          <p className="text-gray-600 mt-2 text-sm">Creează un cont gratuit și accesează cursurile interactive.</p>
+        <div className="mb-8 text-center space-y-2">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+            Bun venit
+          </h1>
+          <p className="text-slate-500 text-sm font-medium">
+            Conectează-te la contul tău
+          </p>
         </div>
 
-        {/* Form Card */}
-        <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-2xl shadow-gray-100">
+        <form onSubmit={handleSubmit} className="space-y-5">
           
-          {error && (
-            <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2 mb-6">
-              <span>⚠️</span> {error}
-            </div>
-          )}
-          
-          {success && (
-            <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2 mb-6">
-              <span>✓</span> {success}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            
-            <div>
-              <label className="block text-xs font-semibold text-cyan-700 mb-1.5 ml-1 uppercase tracking-wider">Nume Complet</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">👤</span>
-                <input
-                  type="text"
-                  placeholder="Ex: Ion Popescu"
-                  value={form.full_name}
-                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:bg-white focus:ring-1 focus:ring-cyan-100 transition-all"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-cyan-700 mb-1.5 ml-1 uppercase tracking-wider">Email</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">✉️</span>
-                <input
-                  type="email"
-                  placeholder="nume@exemplu.com"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:bg-white focus:ring-1 focus:ring-cyan-100 transition-all"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-cyan-700 mb-1.5 ml-1 uppercase tracking-wider">Parolă</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:bg-white focus:ring-1 focus:ring-cyan-100 transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-cyan-700 mb-1.5 ml-1 uppercase tracking-wider">Confirmare</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={form.confirm_password}
-                  onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:bg-white focus:ring-1 focus:ring-cyan-100 transition-all"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gray-900 hover:bg-gray-800 text-white font-extrabold py-4 rounded-xl transition-all shadow-md shadow-gray-900/10 disabled:opacity-50 disabled:shadow-none mt-6"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Se procesează...
-                </span>
-              ) : (
-                "Creează contul"
-              )}
-            </button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-            <p className="text-gray-500 text-sm">
-              Ai deja un cont?{" "}
-              <button 
-                onClick={() => navigate("/login")} 
-                className="text-cyan-600 hover:text-cyan-700 font-semibold transition"
-              >
-                Loghează-te aici
-              </button>
-            </p>
+          {/* Input Email */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-slate-700 ml-1 block">
+              Adresă de email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="nume@exemplu.ro"
+              className="w-full bg-white border border-slate-200 text-slate-900 placeholder-slate-400 p-3.5 rounded-2xl outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15 transition-all duration-300"
+              required
+            />
           </div>
+
+          {/* Input Parolă + Link Forgot Password */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between ml-1">
+              <label className="text-sm font-semibold text-slate-700 block">
+                Parolă
+              </label>
+              <Link 
+                to="/forgot-password" 
+                className="text-xs font-semibold text-cyan-600 hover:text-cyan-500 transition-colors"
+                tabIndex="-1"
+              >
+                [Ai uitat parola?]
+              </Link>
+            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-white border border-slate-200 text-slate-900 placeholder-slate-400 p-3.5 rounded-2xl outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/15 transition-all duration-300"
+              required
+            />
+          </div>
+
+          {/* Mesaj de eroare */}
+          {error && (
+            <div className="p-4 bg-red-50/80 border border-red-100 text-red-600 text-sm rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 shrink-0 mt-0.5 text-red-500">
+                <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium leading-tight">{error}</span>
+            </div>
+          )}
+
+          {/* Buton principal */}
+          <button
+            disabled={loading}
+            className="w-full relative group overflow-hidden bg-[#0f172a] text-white font-semibold p-4 rounded-2xl shadow-lg shadow-slate-900/20 hover:shadow-slate-900/30 active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+          >
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <span className="relative flex items-center justify-center gap-2">
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white/80" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Se autentifică...</span>
+                </>
+              ) : (
+                "Intră în cont"
+              )}
+            </span>
+          </button>
+        </form>
+
+        {/* Secțiunea de redirecționare pentru cont nou */}
+        <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+          <p className="text-sm text-slate-600">
+            Nu ai încă un cont?{" "}
+            <Link 
+              to="/register" 
+              className="font-bold text-cyan-600 hover:text-cyan-500 transition-colors focus:outline-none focus:underline"
+            >
+              [Înregistrează-te]
+            </Link>
+          </p>
         </div>
 
       </div>
     </div>
   );
-}
+}m
