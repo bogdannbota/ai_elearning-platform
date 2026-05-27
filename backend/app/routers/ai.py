@@ -7,6 +7,7 @@ from app.models import Course, Enrollment
 from app.routers.auth import get_current_user
 
 from app.services.ai_service import ai_service
+from app.services.course_service import get_course_context
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")

@@ -45,3 +45,21 @@ def get_course_context(course) -> str:
         )
 
     return context
+
+
+def chunk_text(text: str, size: int = 1000):
+    return [text[i:i + size] for i in range(0, len(text), size)]
+
+
+def simple_retrieve(chunks, query: str, top_k: int = 3):
+    query_words = set(query.lower().split())
+
+    scored = []
+
+    for chunk in chunks:
+        score = sum(1 for w in query_words if w in chunk.lower())
+        scored.append((score, chunk))
+
+    scored.sort(reverse=True, key=lambda x: x[0])
+
+    return [c for _, c in scored[:top_k]]
