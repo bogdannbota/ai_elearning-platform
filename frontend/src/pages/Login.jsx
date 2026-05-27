@@ -12,56 +12,67 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const getRedirectPath = (role) => {
+    if (role === "admin") return "/admin/dashboard";
+    if (role === "manager") return "/manager/dashboard";
+    return "/student/dashboard";
+  };
+
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError("");
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-  try {
-    const res = await api.post("/auth/login", {
-      email,
-      password,
-    });
+    try {
+      const res = await api.post("/auth/login", { email, password });
 
-    const data = res.data.data; // IMPORTANT (APIResponse wrapper)
+      const payload = res.data?.data ?? res.data;
 
-    login(data.access_token, data.user);
+      if (!payload?.access_token || !payload?.user) {
+        throw new Error("Răspuns invalid de la server");
+      }
 
-    if (data.user.role === "admin") {
-      navigate("/admin/dashboard");
-    } else {
-      navigate("/dashboard");
+      login(payload.access_token, payload.user);
+
+      navigate(getRedirectPath(payload.user.role), { replace: true });
+
+    } catch (err) {
+      setError(
+        err?.response?.data?.detail ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Email sau parolă incorectă"
+      );
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError("Email sau parolă incorectă");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow">
-        
-        <h1 className="text-2xl font-bold mb-6">Login</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow p-8">
+
+        <h1 className="text-2xl font-bold mb-6 text-center">
+          Login
+        </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
           <input
             type="email"
-            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full border p-3 rounded"
+            placeholder="Email"
+            className="w-full border p-3 rounded-lg"
             required
           />
 
           <input
             type="password"
-            placeholder="Parolă"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full border p-3 rounded"
+            placeholder="Parolă"
+            className="w-full border p-3 rounded-lg"
             required
           />
 
@@ -71,7 +82,7 @@ export default function Login() {
 
           <button
             disabled={loading}
-            className="w-full bg-cyan-500 text-white p-3 rounded"
+            className="w-full bg-cyan-500 text-white p-3 rounded-lg"
           >
             {loading ? "Se încarcă..." : "Intră în cont"}
           </button>
