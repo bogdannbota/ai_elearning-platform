@@ -7,12 +7,15 @@ class AIClient:
         self.client = Groq(api_key=settings.GROQ_API_KEY)
 
     def chat(self, messages, max_tokens=1000, temperature=0.3):
-        return self.client.chat.completions.create(
+        response = self.client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature,
         )
+
+        # IMPORTANT: returnăm textul efectiv
+        return response.choices[0].message.content
 
 
 ai_client = AIClient()
