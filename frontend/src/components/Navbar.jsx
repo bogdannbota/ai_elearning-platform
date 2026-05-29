@@ -45,9 +45,9 @@ const adminLinks = [
 
   const managerLinks = [
     { path: "/manager/dashboard", label: "Dashboard",  icon: "🏠" },
-    { path: "/cursuri",           label: "Cursuri",    icon: "📚" },
+    { path: "/admin/cursuri",     label: "Cursuri",    icon: "📚" },
     { path: "/admin/learning-plans", label: "Planuri", icon: "🗺️" },
-    { path: "/my-exams",          label: "Examene",    icon: "📝" },
+    { path: "/admin/examene",     label: "Examene",    icon: "📝" },
   ];
 
   const studentLinks = [
