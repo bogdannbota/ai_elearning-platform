@@ -38,6 +38,7 @@ const adminLinks = [
   { path: "/admin/dashboard",  label: "Dashboard",    icon: "🏠" },
   { path: "/admin/cursuri",    label: "Cursuri",      icon: "📚" },
   { path: "/admin/examene",    label: "Examene",      icon: "📝" },
+  { path: "/admin/learning-plans", label: "Planuri", icon: "🗺️" },
   { path: "/admin/useri",      label: "Utilizatori",  icon: "👥" },
   { path: "/admin/settings",   label: "Setări",       icon: "⚙️" },
 ];
@@ -45,6 +46,7 @@ const adminLinks = [
   const managerLinks = [
     { path: "/manager/dashboard", label: "Dashboard",  icon: "🏠" },
     { path: "/cursuri",           label: "Cursuri",    icon: "📚" },
+    { path: "/admin/learning-plans", label: "Planuri", icon: "🗺️" },
     { path: "/my-exams",          label: "Examene",    icon: "📝" },
   ];
 

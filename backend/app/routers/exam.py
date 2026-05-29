@@ -9,7 +9,8 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, selectinload
-
+from app.services.exam_grading_service import ExamGradingService
+from app.schemas.exam import ExamSubmission
 from app.database import get_db
 from app.models.exam import (
     Exam, ExamQuestion, ExamQuestionOption,
@@ -21,7 +22,7 @@ from app.routers.auth import get_current_user
 from app.schemas.exam import (
     ExamCreate, ExamUpdate, ExamResponse,
     ExamDetailResponse, ExamPublicDetailResponse,
-    ExamQuestionCreate, ExamQuestionUpdate, ExamQuestionResponse,
+    ExamQuestionCreate, ExamQuestionUpdate, ExamQuestionResponse,ExamGradingSubmission
 )
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
@@ -386,3 +387,337 @@ def delete_option(
         raise HTTPException(status_code=404, detail="Opțiunea nu există.")
     db.delete(option)
     db.commit()
+
+    # ============================================================
+# STUDENT - Susținere examen (attempt + auto-grading + rezultat)
+# ============================================================
+
+def _sanitize_questions_for_student(exam: Exam):
+    """Întrebările FĂRĂ a dezvălui ce opțiune e corectă."""
+    out = []
+    for q in exam.questions:
+        out.append({
+            "id": q.id,
+            "question_text": q.question_text,
+            "question_type": q.question_type.value if hasattr(q.question_type, "value") else q.question_type,
+            "points": float(q.points),
+            "display_order": q.display_order,
+            "image_path": q.image_path,
+            "options": [
+                {"id": o.id, "option_text": o.option_text, "display_order": o.display_order}
+                for o in q.options
+            ],
+        })
+    return out
+
+
+def _attempt_result_payload(attempt: ExamAttempt):
+    return {
+        "attempt_id": attempt.id,
+        "exam_id": attempt.exam_id,
+        "status": attempt.status.value if hasattr(attempt.status, "value") else attempt.status,
+        "score": float(attempt.score) if attempt.score is not None else None,
+        "points_earned": float(attempt.points_earned) if attempt.points_earned is not None else None,
+        "total_points": float(attempt.total_points) if attempt.total_points is not None else None,
+        "passing_score": float(attempt.exam.passing_score),
+        "requires_manual_grading": attempt.requires_manual_grading,
+        "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
+    }
+
+
+@router.get("/my/attempts")
+def my_attempts(token: str, db: Session = Depends(get_db)):
+    """Toate tentativele studentului curent (pt. tab-ul Rezultate)."""
+    user = get_current_user(token, db)
+    attempts = (
+        db.query(ExamAttempt)
+        .options(selectinload(ExamAttempt.exam))
+        .filter(ExamAttempt.student_id == user.id)
+        .order_by(ExamAttempt.started_at.desc())
+        .all()
+    )
+    return [
+        {
+            "attempt_id": a.id,
+            "exam_id": a.exam_id,
+            "exam_title": a.exam.title if a.exam else "—",
+            "status": a.status.value if hasattr(a.status, "value") else a.status,
+            "score": float(a.score) if a.score is not None else None,
+            "started_at": a.started_at.isoformat() if a.started_at else None,
+            "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+            "requires_manual_grading": a.requires_manual_grading,
+        }
+        for a in attempts
+    ]
+
+
+@router.post("/{exam_id}/start")
+def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
+    """
+    Începe (sau reia) o tentativă. Verifică publicarea și max_attempts.
+    Întoarce attempt_id + întrebările sanitizate (fără răspunsuri corecte).
+    """
+    user = get_current_user(token, db)
+
+    exam = (
+        db.query(Exam)
+        .options(selectinload(Exam.questions).selectinload(ExamQuestion.options))
+        .filter(Exam.id == exam_id)
+        .first()
+    )
+    if not exam:
+        raise HTTPException(status_code=404, detail="Examenul nu există.")
+    if not exam.is_published and user.is_student:
+        raise HTTPException(status_code=403, detail="Examenul nu este publicat.")
+    if not exam.questions:
+        raise HTTPException(status_code=400, detail="Examenul nu are întrebări.")
+
+    # Reia o tentativă în curs dacă există
+    attempt = (
+        db.query(ExamAttempt)
+        .filter(
+            ExamAttempt.exam_id == exam_id,
+            ExamAttempt.student_id == user.id,
+            ExamAttempt.status == ExamAttemptStatus.in_progress,
+        )
+        .first()
+    )
+
+    if not attempt:
+        used = (
+            db.query(ExamAttempt)
+            .filter(
+                ExamAttempt.exam_id == exam_id,
+                ExamAttempt.student_id == user.id,
+            )
+            .count()
+        )
+        # max_attempts = 0 înseamnă nelimitat
+        if exam.max_attempts and exam.max_attempts > 0 and used >= exam.max_attempts:
+            raise HTTPException(status_code=403, detail="Ai atins numărul maxim de încercări.")
+
+        attempt = ExamAttempt(
+            exam_id=exam_id,
+            student_id=user.id,
+            status=ExamAttemptStatus.in_progress,
+        )
+        db.add(attempt)
+        db.commit()
+        db.refresh(attempt)
+
+    return {
+        "attempt_id": attempt.id,
+        "exam": {
+            "id": exam.id,
+            "title": exam.title,
+            "description": exam.description,
+            "duration_minutes": exam.duration_minutes,
+            "passing_score": float(exam.passing_score),
+            "questions": _sanitize_questions_for_student(exam),
+        },
+    }
+
+
+@router.post("/attempts/{attempt_id}/submit")
+def submit_attempt(
+    attempt_id: int,
+    data: ExamSubmission,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """Trimite răspunsurile -> auto-grading -> scor (sau 'submitted' dacă are OpenText)."""
+    user = get_current_user(token, db)
+
+    attempt = (
+        db.query(ExamAttempt)
+        .options(
+            selectinload(ExamAttempt.exam).selectinload(Exam.questions),
+            selectinload(ExamAttempt.answers),
+        )
+        .filter(ExamAttempt.id == attempt_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Tentativa nu există.")
+    if attempt.student_id != user.id:
+        raise HTTPException(status_code=403, detail="Aceasta nu este tentativa ta.")
+
+    service = ExamGradingService(db)
+    attempt = service.submit_exam_attempt(attempt, data.answers)
+    return _attempt_result_payload(attempt)
+
+
+@router.get("/attempts/{attempt_id}")
+def get_attempt_detail(attempt_id: int, token: str, db: Session = Depends(get_db)):
+    """Rezultat detaliat (cu răspunsuri corecte) - pt. review după finalizare."""
+    user = get_current_user(token, db)
+
+    attempt = (
+        db.query(ExamAttempt)
+        .options(
+            selectinload(ExamAttempt.answers),
+            selectinload(ExamAttempt.exam)
+            .selectinload(Exam.questions)
+            .selectinload(ExamQuestion.options),
+        )
+        .filter(ExamAttempt.id == attempt_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Tentativa nu există.")
+    if attempt.student_id != user.id and not user.can_create_content:
+        raise HTTPException(status_code=403, detail="Acces interzis.")
+
+    ans_by_q = {a.question_id: a for a in attempt.answers}
+    questions = []
+    for q in attempt.exam.questions:
+        a = ans_by_q.get(q.id)
+        selected = []
+        if a and a.selected_option_ids:
+            selected = [int(x) for x in a.selected_option_ids.split(",") if x.strip().lstrip("-").isdigit()]
+        questions.append({
+            "id": q.id,
+            "question_text": q.question_text,
+            "question_type": q.question_type.value if hasattr(q.question_type, "value") else q.question_type,
+            "points": float(q.points),
+            "explanation": q.explanation,
+            "options": [
+                {"id": o.id, "option_text": o.option_text, "is_correct": o.is_correct}
+                for o in q.options
+            ],
+            "selected_option_ids": selected,
+            "text_answer": a.text_answer if a else None,
+            "points_earned": float(a.points_earned) if a and a.points_earned is not None else None,
+            "is_correct": a.is_correct if a else None,
+        })
+
+    return {**_attempt_result_payload(attempt), "questions": questions}
+
+# ============================================================
+# PROFESOR/ADMIN - Corectare manuală (open_text)
+# ============================================================
+
+def _require_can_grade(user: User, exam: Exam):
+    """Admin: orice examen. Profesor: doar cele create de el."""
+    if user.is_admin:
+        return
+    if user.can_create_content and exam.created_by == user.id:
+        return
+    raise HTTPException(status_code=403, detail="Nu poți corecta acest examen.")
+
+
+@router.get("/grading/pending")
+def grading_pending(token: str, db: Session = Depends(get_db)):
+    """Tentative care așteaptă corectare manuală (cu open_text)."""
+    user = get_current_user(token, db)
+    if not user.can_create_content:
+        raise HTTPException(status_code=403, detail="Acces interzis.")
+
+    q = (
+        db.query(ExamAttempt)
+        .join(Exam, Exam.id == ExamAttempt.exam_id)
+        .options(
+            selectinload(ExamAttempt.exam),
+            selectinload(ExamAttempt.student),
+            selectinload(ExamAttempt.answers),
+        )
+        .filter(
+            ExamAttempt.status == ExamAttemptStatus.submitted,
+            ExamAttempt.requires_manual_grading == True,
+        )
+    )
+    if not user.is_admin:
+        q = q.filter(Exam.created_by == user.id)
+
+    attempts = q.order_by(ExamAttempt.submitted_at.asc()).all()
+    return [
+        {
+            "attempt_id": a.id,
+            "exam_id": a.exam_id,
+            "exam_title": a.exam.title if a.exam else "—",
+            "student_id": a.student_id,
+            "student_name": a.student.full_name if a.student else "—",
+            "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+            "open_count": sum(1 for ans in a.answers if ans.points_earned is None),
+        }
+        for a in attempts
+    ]
+
+
+@router.get("/attempts/{attempt_id}/grading")
+def attempt_grading_detail(attempt_id: int, token: str, db: Session = Depends(get_db)):
+    """Detaliile unei tentative pentru corectare (doar răspunsurile open_text)."""
+    user = get_current_user(token, db)
+    if not user.can_create_content:
+        raise HTTPException(status_code=403, detail="Acces interzis.")
+
+    attempt = (
+        db.query(ExamAttempt)
+        .options(
+            selectinload(ExamAttempt.exam).selectinload(Exam.questions),
+            selectinload(ExamAttempt.student),
+            selectinload(ExamAttempt.answers).selectinload(ExamStudentAnswer.question),
+        )
+        .filter(ExamAttempt.id == attempt_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Tentativa nu există.")
+    _require_can_grade(user, attempt.exam)
+
+    open_answers = []
+    auto_points = Decimal("0")
+    for a in attempt.answers:
+        if a.question and a.question.question_type == QuestionType.open_text:
+            open_answers.append({
+                "answer_id": a.id,
+                "question_text": a.question.question_text,
+                "max_points": float(a.question.points),
+                "text_answer": a.text_answer or "",
+                "points_earned": float(a.points_earned) if a.points_earned is not None else None,
+                "teacher_feedback": a.teacher_feedback,
+            })
+        elif a.points_earned is not None:
+            auto_points += a.points_earned
+
+    total_points = sum(Decimal(str(q.points)) for q in attempt.exam.questions)
+
+    return {
+        "attempt_id": attempt.id,
+        "exam_title": attempt.exam.title,
+        "student_name": attempt.student.full_name if attempt.student else "—",
+        "auto_points": float(auto_points),
+        "total_points": float(total_points),
+        "open_answers": open_answers,
+        "overall_feedback": attempt.teacher_feedback,
+    }
+
+
+@router.post("/attempts/{attempt_id}/grade")
+def grade_attempt(
+    attempt_id: int,
+    data: ExamGradingSubmission,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """Profesorul/Adminul notează răspunsurile open_text -> recalculează scorul."""
+    user = get_current_user(token, db)
+    if not user.can_create_content:
+        raise HTTPException(status_code=403, detail="Acces interzis.")
+
+    attempt = (
+        db.query(ExamAttempt)
+        .options(
+            selectinload(ExamAttempt.exam).selectinload(Exam.questions),
+            selectinload(ExamAttempt.answers).selectinload(ExamStudentAnswer.question),
+        )
+        .filter(ExamAttempt.id == attempt_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Tentativa nu există.")
+    _require_can_grade(user, attempt.exam)
+
+    service = ExamGradingService(db)
+    attempt = service.grade_answers_manually(attempt, data.answers, user, data.overall_feedback)
+    return _attempt_result_payload(attempt)

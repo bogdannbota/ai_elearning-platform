@@ -63,17 +63,36 @@ export default function ExamEditor() {
       addToast("Întrebare ștearsă", "success"); fetchExam();
     } catch { addToast("Eroare la ștergere", "error"); }
   };
+  const handlePublishExam = async () => {
+  if (!exam.questions || exam.questions.length === 0) {
+    return addToast("Adaugă cel puțin o întrebare înainte de a finaliza", "warning");
+  }
+  try {
+    await axios.post(`${API}/exams/${examId}/publish?token=${token}`);
+    addToast("Examen salvat și publicat! Gata de susținut.", "success");
+    navigate("/admin/examene");
+  } catch (e) {
+    addToast(e.response?.data?.detail || "Eroare la publicare", "error");
+  }
+};
 
   const generateWithAI = async () => {
-    if (aiSubject.trim().length < 3) return addToast("Subiectul trebuie minim 3 caractere", "warning");
-    if (aiTypes.length === 0) return addToast("Alege cel puțin un tip de întrebare", "warning");
-    try {
-      setAiLoading(true);
-      const res = await axios.post(`${API}/ai/generate-exam-questions?token=${token}`, { subject: aiSubject, num_questions: aiCount, difficulty: aiDifficulty, question_types: aiTypes, language: "ro" });
-      setAiSuggestions(res.data.questions || []);
-      addToast(`${res.data.count} întrebări generate!`, "success");
-    } catch (e) { addToast(e.response?.data?.detail || "Eroare la generare AI", "error"); } finally { setAiLoading(false); }
-  };
+  if (aiSubject.trim().length < 3) return addToast("Subiectul trebuie minim 3 caractere", "warning");
+  if (aiTypes.length === 0) return addToast("Alege cel puțin un tip de întrebare", "warning");
+  try {
+    setAiLoading(true);
+    const res = await axios.post(`${API}/ai/generate-exam-questions?token=${token}`, { subject: aiSubject, num_questions: aiCount, difficulty: aiDifficulty, question_types: aiTypes, language: "ro" });
+    const body = res.data?.data ?? res.data;
+    console.log("AI raw JSON:", JSON.stringify(body, null, 2));
+    const questions = body?.questions || [];
+    setAiSuggestions(questions);
+    addToast(`${questions.length} întrebări generate!`, "success");
+  } catch (e) {
+    addToast(e.response?.data?.detail || "Eroare la generare AI", "error");
+  } finally {
+    setAiLoading(false);
+  }
+};
 
   const addSuggestionToExam = async (suggestion) => {
     try {
@@ -117,14 +136,22 @@ export default function ExamEditor() {
               </span>
             </div>
           </div>
-          <button
-            onClick={() => setAiPanel(!aiPanel)}
-            className={`px-5 py-3 rounded-xl text-sm font-extrabold transition-all shadow-sm flex items-center gap-2 ${
-              aiPanel ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100"
-            }`}
-          >
-            <span>✨</span> {aiPanel ? "Închide Asistent AI" : "Deschide Asistent AI"}
-          </button>
+         <div className="flex items-center gap-3">
+  <button
+    onClick={() => setAiPanel(!aiPanel)}
+    className={`px-5 py-3 rounded-xl text-sm font-extrabold transition-all shadow-sm flex items-center gap-2 ${
+      aiPanel ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100"
+    }`}
+  >
+    <span>✨</span> {aiPanel ? "Închide Asistent AI" : "Deschide Asistent AI"}
+  </button>
+  <button
+    onClick={handlePublishExam}
+    className="px-5 py-3 rounded-xl text-sm font-extrabold bg-gray-900 hover:bg-gray-800 text-white transition-all shadow-md shadow-gray-900/10 flex items-center gap-2"
+  >
+    <span>✓</span> Salvează și Publică
+  </button>
+</div>
         </div>
       </div>
 

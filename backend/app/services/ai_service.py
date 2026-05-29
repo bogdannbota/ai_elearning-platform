@@ -39,7 +39,7 @@ class AIService:
             max_tokens=1000,
         )
 
-        return response.choices[0].message.content
+        return response
 
     def generate_quiz(self, course, num_questions: int):
         context = get_course_context(course)
@@ -71,7 +71,7 @@ Return format JSON:
             max_tokens=2000,
         )
 
-        return self._safe_json(response.choices[0].message.content)
+        return self._safe_json(response)
 
     def summarize(self, course):
         context = get_course_context(course)
@@ -85,7 +85,7 @@ Return format JSON:
             max_tokens=1000,
         )
 
-        return response.choices[0].message.content
+        return response
 
     def assist(self, message: str, context: str = None):
 
@@ -102,7 +102,7 @@ Return format JSON:
             max_tokens=1500,
         )
 
-        return response.choices[0].message.content
+        return response
 
     def generate_exam_questions(self, prompt: str):
 
@@ -115,7 +115,7 @@ Return format JSON:
             max_tokens=4000,
         )
 
-        return self._safe_json(response.choices[0].message.content)
+        return self._safe_json(response)
 
     def _safe_json(self, text: str):
         try:

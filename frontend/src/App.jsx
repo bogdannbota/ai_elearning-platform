@@ -16,6 +16,7 @@ import Useri from "./pages/admin/Useri";
 import Settings from "./pages/admin/Settings";
 import Examene from "./pages/admin/Examene";
 import ExamEditor from "./pages/admin/ExamEditor";
+import LearningPlans from "./pages/admin/LearningPlans";
 
 import StudentDashboard from "./pages/student/Dashboard";
 import ManagerDashboard from "./pages/manager/Dashboard";
@@ -25,6 +26,7 @@ import Profile from "./pages/Profile";
 import CourseDetails from "./pages/CourseDetails";
 import Exams from "./pages/Exams";
 import Cursuri from "./pages/Cursuri";
+import TakeExam from "./pages/student/TakeExam";
 
 // ─────────────────────────────
 // Redirect pe rol
@@ -105,6 +107,14 @@ function AppContent() {
             </PrivateRoute>
           }
         />
+        <Route
+  path="/admin/learning-plans"
+  element={
+    <PrivateRoute allowedRoles={["admin", "manager"]}>
+      <LearningPlans />
+    </PrivateRoute>
+  }
+/>
 
         <Route
           path="/admin/examene/:examId/editor"
@@ -134,6 +144,14 @@ function AppContent() {
             </PrivateRoute>
           }
         />
+        <Route
+  path="/exams/:examId/take"
+  element={
+    <PrivateRoute allowedRoles={["student", "manager", "admin"]}>
+      <TakeExam />
+    </PrivateRoute>
+  }
+/>
 
         {/* COMMON */}
         <Route
@@ -179,6 +197,7 @@ function AppContent() {
               <Quiz />
             </PrivateRoute>
           }
+          
         />
 
         {/* fallback */}

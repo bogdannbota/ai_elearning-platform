@@ -139,10 +139,9 @@ class ExamGradingService:
                 detail="Întrebarea nu aparține acestui examen.",
             )
 
-        # Construiește răspunsul
+        
         answer = ExamStudentAnswer(
-            attempt_id=attempt.id,
-            question_id=question.id,
+           question_id=question.id,
         )
 
         # Auto-grading în funcție de tipul întrebării
@@ -166,7 +165,7 @@ class ExamGradingService:
             answer.points_earned = None  # va fi setat la corectare manuală
             answer.is_correct = None
 
-        self.db.add(answer)
+        attempt.answers.append(answer)
         return answer
 
     def submit_exam_attempt(
