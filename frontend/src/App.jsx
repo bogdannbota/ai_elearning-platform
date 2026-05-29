@@ -75,7 +75,7 @@ function AppContent() {
         <Route
           path="/admin/cursuri"
           element={
-            <PrivateRoute allowedRoles={["admin"]}>
+            <PrivateRoute allowedRoles={["admin", "manager"]}>
               <CursuriAdmin />
             </PrivateRoute>
           }

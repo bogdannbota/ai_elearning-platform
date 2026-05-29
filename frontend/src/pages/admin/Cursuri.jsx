@@ -19,7 +19,8 @@ const diffLabel = (val) => DIFFICULTY_OPTIONS.find(d => d.value === val) || DIFF
 //  PAGINA PRINCIPALĂ
 // ──────────────────────────────────────────────────────────────
 export default function CursuriAdmin() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
   const { addToast } = useToast();
 
@@ -220,12 +221,14 @@ export default function CursuriAdmin() {
                             >
                               Editează
                             </button>
-                            <button
-                              onClick={() => handleDelete(c)}
-                              className="text-red-500 hover:text-red-700 font-bold text-xs transition-colors"
-                            >
-                              Șterge
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDelete(c)}
+                                className="text-red-500 hover:text-red-700 font-bold text-xs transition-colors"
+                              >
+                                Șterge
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
