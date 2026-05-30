@@ -27,6 +27,9 @@ import CourseDetails from "./pages/CourseDetails";
 import Exams from "./pages/Exams";
 import Cursuri from "./pages/Cursuri";
 import TakeExam from "./pages/student/TakeExam";
+import MyLearningPlans from "./pages/student/MyLearningPlans";
+
+
 
 // ─────────────────────────────
 // Redirect pe rol
@@ -199,6 +202,14 @@ function AppContent() {
           }
           
         />
+        <Route
+  path="/my-learning-plans"
+  element={
+    <PrivateRoute allowedRoles={["student"]}>
+      <MyLearningPlans />
+    </PrivateRoute>
+  }
+/>
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

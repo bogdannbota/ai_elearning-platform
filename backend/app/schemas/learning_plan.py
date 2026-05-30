@@ -113,3 +113,44 @@ class LearningPlanAssignmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+
+# ============================================================
+# STUDENT - vizualizare plan cu progres real
+# ============================================================
+
+class MyPlanItemDetail(BaseModel):
+    id: int                          # id-ul item-ului din plan
+    type: str                        # "course" sau "exam"
+    ref_id: int                      # course_id sau exam_id
+    title: str
+    is_required: bool
+    display_order: int
+    status: str                      # not_started | in_progress | done | failed
+    progress_percent: float = 0.0    # relevant pentru cursuri
+    score: Optional[float] = None    # relevant pentru examene
+
+    class Config:
+        from_attributes = True
+
+
+class MyPlanSummary(BaseModel):
+    assignment_id: int
+    plan_id: int
+    title: str
+    description: Optional[str] = None
+    is_mandatory: bool
+    progress_percent: float
+    completed: bool
+    items_total: int
+    items_done: int
+    assigned_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MyPlanDetail(MyPlanSummary):
+    items: List[MyPlanItemDetail] = []

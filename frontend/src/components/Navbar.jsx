@@ -54,6 +54,7 @@ const adminLinks = [
     { path: "/student/dashboard", label: "Dashboard",  icon: "🏠" },
     { path: "/cursuri",           label: "Cursuri",    icon: "📚" },
     { path: "/my-exams",          label: "Examene",    icon: "📝" },
+    { path: "/my-learning-plans", label: "Planurile mele", icon: "🗺️" },
   ];
 
   const navLinks = isAdmin ? adminLinks : isManager ? managerLinks : studentLinks;
