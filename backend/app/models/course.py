@@ -86,6 +86,10 @@ class Course(Base):
         cascade="all, delete-orphan",
         order_by="CourseModule.display_order"
     )
+    @property
+    def department_id(self):
+        """Primul departament mapat (Variant A: un curs = un departament)."""
+        return self.departments[0].department_id if self.departments else None
     departments = relationship("DepartmentCourse", back_populates="course")
     enrollments = relationship("Enrollment", back_populates="course")
 

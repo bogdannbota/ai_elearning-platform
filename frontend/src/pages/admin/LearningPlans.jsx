@@ -5,7 +5,7 @@ import { useToast } from "../../context/ToastContext";
 
 // instanța `api` adaugă automat header-ul Authorization (vezi api/client.js).
 // Rutele de learning-plans folosesc autentificare prin header, deci e exact ce trebuie.
-// Pentru cursuri/examene/useri adăugăm și ?token= (folosesc query param).
+// Pentru cursuri/examene/useri/departamente adăugăm și ?token= (folosesc query param).
 
 export default function LearningPlans() {
   const { token } = useAuth();
@@ -15,6 +15,7 @@ export default function LearningPlans() {
   const [courses, setCourses] = useState([]);
   const [exams, setExams] = useState([]);
   const [students, setStudents] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [planModal, setPlanModal] = useState(null);   // { mode:"create"|"edit", plan? }
@@ -26,16 +27,18 @@ export default function LearningPlans() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [pRes, cRes, eRes, uRes] = await Promise.all([
+      const [pRes, cRes, eRes, uRes, dRes] = await Promise.all([
         api.get("/learning-plans/"),
         api.get(`/courses/?token=${token}`),
         api.get(`/exams/?token=${token}`),
         api.get(`/users/?token=${token}`),
+        api.get(`/departments/?token=${token}`),
       ]);
       setPlans(pRes.data);
       setCourses(cRes.data);
       setExams(eRes.data);
       setStudents(uRes.data.filter((u) => u.role === "student" && u.is_active));
+      setDepartments(dRes.data);
     } catch {
       addToast("Eroare la încărcarea planurilor", "error");
     } finally {
@@ -54,6 +57,8 @@ export default function LearningPlans() {
     }
   };
 
+  const deptName = (id) => departments.find((d) => d.id === id)?.name;
+
   if (loading)
     return <div className="min-h-screen bg-gray-50 flex justify-center items-center"><div className="w-10 h-10 border-4 border-cyan-200 border-t-cyan-500 rounded-full animate-spin" /></div>;
 
@@ -65,7 +70,7 @@ export default function LearningPlans() {
           <div>
             <p className="text-xs font-bold text-cyan-600 uppercase tracking-widest mb-1">Trasee de Învățare</p>
             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Planuri de Învățare</h1>
-            <p className="text-sm text-gray-500 mt-1 font-medium">Construiește un traseu (cursuri + examene) și asignează-l studenților.</p>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Construiește un traseu (cursuri + examene) și asignează-l studenților sau unui departament.</p>
           </div>
           <button onClick={() => setPlanModal({ mode: "create" })} className="px-6 py-3.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-sm font-extrabold transition-all shadow-md shadow-gray-900/10 flex items-center gap-2">
             <span className="text-lg">+</span> Plan Nou
@@ -96,6 +101,13 @@ export default function LearningPlans() {
                   </div>
                 </div>
                 <h3 className="text-lg font-extrabold text-gray-900 mb-2 leading-snug line-clamp-2">{plan.title}</h3>
+
+                {plan.target_department_id && (
+                  <span className="self-start mb-3 px-2.5 py-1 text-[10px] uppercase tracking-widest font-extrabold rounded-lg border bg-blue-50 border-blue-200 text-blue-700">
+                    🏢 {deptName(plan.target_department_id) || "Departament"}
+                  </span>
+                )}
+
                 <p className="text-sm font-medium text-gray-500 mb-5 line-clamp-2 flex-1">{plan.description || "Acest plan nu are o descriere."}</p>
 
                 <div className="grid grid-cols-2 gap-2 mb-2">
@@ -116,6 +128,7 @@ export default function LearningPlans() {
         <PlanModal
           mode={planModal.mode}
           plan={planModal.plan}
+          departments={departments}
           addToast={addToast}
           onClose={() => setPlanModal(null)}
           onSaved={() => { setPlanModal(null); fetchAll(); }}
@@ -147,11 +160,12 @@ export default function LearningPlans() {
 // ──────────────────────────────────────────────────────────────
 //  MODAL: Creează / Editează plan
 // ──────────────────────────────────────────────────────────────
-function PlanModal({ mode, plan, addToast, onClose, onSaved }) {
+function PlanModal({ mode, plan, departments = [], addToast, onClose, onSaved }) {
   const isEdit = mode === "edit";
   const [form, setForm] = useState({
     title: plan?.title || "",
     description: plan?.description || "",
+    target_department_id: plan?.target_department_id ? String(plan.target_department_id) : "",
     is_mandatory: plan?.is_mandatory ?? false,
     is_published: plan?.is_published ?? false,
   });
@@ -161,11 +175,15 @@ function PlanModal({ mode, plan, addToast, onClose, onSaved }) {
     if (form.title.trim().length < 3) return addToast("Titlul trebuie să aibă minim 3 caractere", "warning");
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        target_department_id: form.target_department_id ? parseInt(form.target_department_id) : null,
+      };
       if (isEdit) {
-        await api.put(`/learning-plans/${plan.id}`, form);
+        await api.put(`/learning-plans/${plan.id}`, payload);
         addToast("Plan actualizat", "success");
       } else {
-        await api.post("/learning-plans/", form);
+        await api.post("/learning-plans/", payload);
         addToast("Plan creat", "success");
       }
       onSaved();
@@ -191,13 +209,25 @@ function PlanModal({ mode, plan, addToast, onClose, onSaved }) {
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Descriere (opțional)</label>
             <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-400 transition-all resize-none" />
           </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Departament țintă</label>
+            <select
+              value={form.target_department_id}
+              onChange={(e) => setForm({ ...form, target_department_id: e.target.value })}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-400 transition-all"
+            >
+              <option value="">— Niciunul (doar asignare manuală) —</option>
+              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Cu departament ales + plan publicat, toți studenții din acel departament îl primesc automat.</p>
+          </div>
           <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
             <input type="checkbox" id="lp_mand" checked={form.is_mandatory} onChange={(e) => setForm({ ...form, is_mandatory: e.target.checked })} className="w-5 h-5 accent-cyan-500" />
             <label htmlFor="lp_mand" className="text-sm font-bold text-gray-900 cursor-pointer">Plan obligatoriu</label>
           </div>
           <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
             <input type="checkbox" id="lp_pub" checked={form.is_published} onChange={(e) => setForm({ ...form, is_published: e.target.checked })} className="w-5 h-5 accent-cyan-500" />
-            <label htmlFor="lp_pub" className="text-sm font-bold text-gray-900 cursor-pointer">Publicat (vizibil studenților asignați)</label>
+            <label htmlFor="lp_pub" className="text-sm font-bold text-gray-900 cursor-pointer">Publicat (vizibil studenților)</label>
           </div>
         </div>
 

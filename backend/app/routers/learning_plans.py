@@ -184,6 +184,35 @@ def my_plans(
 ):
     PermissionService.require_student(current_user)
 
+    # Variant A: auto-asignează planurile PUBLICATE care țintesc departamentul
+    # studentului (dacă nu are deja o asignare). Studenții noi din departament
+    # le primesc automat la următoarea încărcare.
+    if current_user.department_id:
+        dept_plans = (
+            db.query(LearningPlan)
+            .filter(
+                LearningPlan.is_published == True,
+                LearningPlan.target_department_id == current_user.department_id,
+            )
+            .all()
+        )
+        for plan in dept_plans:
+            exists = (
+                db.query(LearningPlanAssignment)
+                .filter(
+                    LearningPlanAssignment.learning_plan_id == plan.id,
+                    LearningPlanAssignment.student_id == current_user.id,
+                )
+                .first()
+            )
+            if not exists:
+                db.add(LearningPlanAssignment(
+                    learning_plan_id=plan.id,
+                    student_id=current_user.id,
+                    assigned_by=plan.created_by,
+                ))
+        db.commit()
+
     assignments = (
         db.query(LearningPlanAssignment)
         .filter(LearningPlanAssignment.student_id == current_user.id)

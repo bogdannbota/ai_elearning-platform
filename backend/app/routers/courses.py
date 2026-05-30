@@ -18,6 +18,7 @@ import uuid
 from fastapi import UploadFile
 from typing import List, Optional
 from decimal import Decimal
+from sqlalchemy import or_
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session, selectinload
@@ -47,21 +48,21 @@ os.makedirs(FILES_DIR, exist_ok=True)
 def _save_upload_secure(file: UploadFile, subdir: str) -> str:
     if not file or not file.filename:
         return None
-        
+
     # Extragem extensia fișierului în siguranță (ex: '.pdf', '.png')
     ext = os.path.splitext(file.filename)[1].lower()
-    
+
     # Generăm un identificator unic garantat
     safe_name = f"{uuid.uuid4().hex}{ext}"
-    
+
     # Construim calea
     rel_path = os.path.join(subdir, safe_name)
     full_path = os.path.join("uploads", rel_path)
-    
+
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     with open(full_path, "wb") as buf:
         shutil.copyfileobj(file.file, buf)
-        
+
     return full_path.replace("\\", "/")
 
 
@@ -80,6 +81,22 @@ def _get_course_or_404(db: Session, course_id: int) -> Course:
     return course
 
 
+def _set_course_departments(db: Session, course_id: int, department_ids: str) -> None:
+    """
+    Înlocuiește maparea cursului pe departamente.
+    department_ids gol ("") => curs general (fără nicio mapare).
+    """
+    db.query(DepartmentCourse).filter(DepartmentCourse.course_id == course_id).delete()
+    if department_ids and department_ids.strip():
+        for raw in department_ids.split(","):
+            try:
+                dept_id = int(raw.strip())
+                if db.query(Department).filter(Department.id == dept_id).first():
+                    db.add(DepartmentCourse(course_id=course_id, department_id=dept_id))
+            except ValueError:
+                continue
+
+
 # ============================================================
 # Endpoint-uri
 # ============================================================
@@ -87,8 +104,8 @@ def _get_course_or_404(db: Session, course_id: int) -> Course:
 @router.get("/", response_model=List[CourseResponse])
 def list_courses(
     token: str,
-    skip: int = 0,               
-    limit: int = 100,            
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db),
     only_published: bool = False,
     category_id: Optional[int] = None,
@@ -96,11 +113,14 @@ def list_courses(
     """
     Listează cursuri:
     - Admin/Manager: toate
-    - Student: doar publicate, filtrate pe departament dacă există DepartmentCourse
+    - Student: doar publicate, filtrate pe departament (Variant A)
     """
     user = get_current_user(token, db)
 
-    query = db.query(Course).options(selectinload(Course.category))
+    query = db.query(Course).options(
+        selectinload(Course.category),
+        selectinload(Course.departments),
+    )
 
     if category_id is not None:
         query = query.filter(Course.category_id == category_id)
@@ -108,23 +128,20 @@ def list_courses(
     if PermissionService.is_student(user) or only_published:
         query = query.filter(Course.is_published == True)
 
-    # Pentru student: filtrare pe departament dacă există DepartmentCourse-uri
-    if PermissionService.is_student(user) and user.department_id:
-        dept_course_ids = [
-            dc.course_id for dc in
-            db.query(DepartmentCourse)
+    # Variant A: studentul vede un curs DOAR dacă e "general" (fără nicio mapare
+    # la departament) SAU dacă e mapat pe departamentul lui.
+    if PermissionService.is_student(user):
+        mapped_course_ids = db.query(DepartmentCourse.course_id).distinct()
+        my_dept_course_ids = (
+            db.query(DepartmentCourse.course_id)
             .filter(DepartmentCourse.department_id == user.department_id)
-            .all()
-        ]
-        # Dacă nu există nicio mapare DepartmentCourse pentru cursuri,
-        # studentul vede toate cursurile publicate. Dacă există măcar una,
-        # filtrăm pe departamentul lui.
-        any_mapping = db.query(DepartmentCourse).first()
-        if any_mapping and dept_course_ids:
-            query = query.filter(Course.id.in_(dept_course_ids))
-        elif any_mapping and not dept_course_ids:
-            # Există mapări, dar nu pentru departamentul lui -> nu vede nimic
-            return []
+        )
+        query = query.filter(
+            or_(
+                ~Course.id.in_(mapped_course_ids),     # curs general
+                Course.id.in_(my_dept_course_ids),     # cursul departamentului meu
+            )
+        )
 
     return query.order_by(Course.display_order, Course.created_at.desc()).offset(skip).limit(limit).all()
 
@@ -139,6 +156,7 @@ def get_course(course_id: int, token: str, db: Session = Depends(get_db)):
         .options(
             selectinload(Course.category),
             selectinload(Course.modules),
+            selectinload(Course.departments),
         )
         .filter(Course.id == course_id)
         .first()
@@ -216,15 +234,9 @@ def create_course(
     db.commit()
     db.refresh(course)
 
-    # Asignează departamente dacă au fost trimise
+    # Asignează departamente dacă au fost trimise (gol => curs general)
     if department_ids.strip():
-        for raw in department_ids.split(","):
-            try:
-                dept_id = int(raw.strip())
-                if db.query(Department).filter(Department.id == dept_id).first():
-                    db.add(DepartmentCourse(course_id=course.id, department_id=dept_id))
-            except ValueError:
-                continue
+        _set_course_departments(db, course.id, department_ids)
         db.commit()
         db.refresh(course)
 
@@ -244,6 +256,7 @@ def update_course(
     duration_minutes: Optional[int] = Form(None),
     is_published: Optional[bool] = Form(None),
     display_order: Optional[int] = Form(None),
+    department_ids: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     cover_image: Optional[UploadFile] = File(None),
 ):
@@ -290,6 +303,13 @@ def update_course(
             raise HTTPException(status_code=400, detail="Cover trebuie să fie imagine")
         _delete_file_safe(course.cover_image_path)
         course.cover_image_path = _save_upload_secure(cover_image, "covers")
+
+    # Variant A: actualizează maparea pe departamente dacă a fost trimisă.
+    # None  => nu atinge maparea existentă.
+    # ""    => curs general (șterge toate mapările).
+    # "id"  => mapat pe acel departament.
+    if department_ids is not None:
+        _set_course_departments(db, course_id, department_ids)
 
     db.commit()
     db.refresh(course)

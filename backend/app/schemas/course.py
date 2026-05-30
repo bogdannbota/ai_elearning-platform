@@ -111,6 +111,9 @@ class CourseResponse(CourseBase):
     created_by: int
     created_at: datetime
     updated_at: datetime
+    # Variant A: departamentul mapat (None = curs general, vizibil tuturor).
+    # Citit din proprietatea Course.department_id (vezi models/course.py).
+    department_id: Optional[int] = None
 
     class Config:
         from_attributes = True

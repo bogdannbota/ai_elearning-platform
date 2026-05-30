@@ -78,6 +78,8 @@ export default function CursuriAdmin() {
     }
   };
 
+  const deptName = (id) => departments.find((d) => d.id === id)?.name;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -137,6 +139,7 @@ export default function CursuriAdmin() {
                   <tr>
                     <th className="px-6 py-4 font-bold">Curs</th>
                     <th className="px-6 py-4 font-bold">Categorie</th>
+                    <th className="px-6 py-4 font-bold">Departament</th>
                     <th className="px-6 py-4 font-bold">Dificultate</th>
                     <th className="px-6 py-4 font-bold text-center">Durată</th>
                     <th className="px-6 py-4 font-bold text-center">Status</th>
@@ -177,6 +180,15 @@ export default function CursuriAdmin() {
                             </span>
                           ) : (
                             <span className="text-gray-400 text-xs italic">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {c.department_id ? (
+                            <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-100">
+                              🏢 {deptName(c.department_id) || `#${c.department_id}`}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs italic">Toate</span>
                           )}
                         </td>
                         <td className="px-6 py-4">
@@ -282,7 +294,7 @@ function CourseModal({ existing, categories, departments, onClose, onSaved, toke
     duration_minutes: existing?.duration_minutes   ?? 0,
     is_published:     existing?.is_published       ?? false,
     display_order:    existing?.display_order      ?? 0,
-    department_id:    "",  // setat doar la create dacă există
+    department_id:    existing?.department_id ? String(existing.department_id) : "",
   });
 
   const [file, setFile]               = useState(null);
@@ -318,9 +330,9 @@ function CourseModal({ existing, categories, departments, onClose, onSaved, toke
       fd.append("is_published",     form.is_published);
       fd.append("display_order",    form.display_order);
 
-      if (!isEdit && form.department_id) {
-        fd.append("department_ids", form.department_id);
-      }
+      // Variant A: trimitem mereu departamentul (creare ȘI editare).
+      // Gol => curs "general", vizibil tuturor; altfel mapat pe departament.
+      fd.append("department_ids", form.department_id);
 
       if (file)       fd.append("file", file);
       if (coverImage) fd.append("cover_image", coverImage);
@@ -472,8 +484,8 @@ function CourseModal({ existing, categories, departments, onClose, onSaved, toke
           </div>
         </div>
 
-        {/* Grid: durată + ordine + departament (doar create) */}
-        <div className={`grid ${isEdit ? "grid-cols-2" : "grid-cols-3"} gap-4 mb-4`}>
+        {/* Grid: durată + ordine + departament (creare ȘI editare) */}
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Durată (min)
@@ -498,23 +510,21 @@ function CourseModal({ existing, categories, departments, onClose, onSaved, toke
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-cyan-400 transition-all text-center"
             />
           </div>
-          {!isEdit && (
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                Departament
-              </label>
-              <select
-                value={form.department_id}
-                onChange={(e) => setForm({ ...form, department_id: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-cyan-400 transition-all"
-              >
-                <option value="">— Toate —</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Departament
+            </label>
+            <select
+              value={form.department_id}
+              onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-cyan-400 transition-all"
+            >
+              <option value="">— Toate (general) —</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* PDF curs */}
