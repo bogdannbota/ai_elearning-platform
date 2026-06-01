@@ -33,13 +33,13 @@ export default function Login() {
       <div className="hidden lg:flex flex-col justify-between p-12 text-white" style={{ background: "var(--ink)" }}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center font-bold" style={{ fontFamily: "var(--font-display)" }}>L</div>
-          <span className="font-bold text-lg" style={{ fontFamily: "var(--font-display)" }}>IntelliSense Edu</span>
+          <span className="font-bold text-lg" style={{ fontFamily: "var(--font-display)" }}>LearnHub Enterprise</span>
         </div>
         <div>
           <h2 className="text-3xl font-extrabold leading-tight mb-4">Platforma de instruire a echipei tale.</h2>
           <p className="text-white/60 text-sm max-w-sm">Cursuri, examene și trasee de învățare, organizate pe departamente.</p>
         </div>
-        <p className="text-white/40 text-xs">© {new Date().getFullYear()} IntelliSense Edu</p>
+        <p className="text-white/40 text-xs">© {new Date().getFullYear()} LearnHub Enterprise</p>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-12">

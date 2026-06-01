@@ -68,7 +68,7 @@ export default function Navbar() {
               L
             </div>
             <div className="hidden sm:block text-left leading-none">
-              <span className="block font-bold text-[15px]" style={{ fontFamily: "var(--font-display)" }}>LearnHub</span>
+              <span className="block font-bold text-[15px]" style={{ fontFamily: "var(--font-display)" }}></span>
               <span className="block text-[10px] font-semibold tracking-widest uppercase" style={{ color: "var(--ink-soft)" }}>Enterprise</span>
             </div>
           </button>
