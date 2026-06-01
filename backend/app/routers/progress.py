@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel
 from datetime import datetime
 from app.database import get_db
-from app.models import RoleEnum, Enrollment
+from app.models import RoleEnum, Enrollment, Course
 from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/progress", tags=["Progress"])
@@ -67,9 +67,20 @@ def my_courses(token: str, db: Session = Depends(get_db)):
 @router.get("/admin/all", response_model=List[EnrollmentResponse])
 def all_progress(token: str, db: Session = Depends(get_db)):
     user = get_current_user(token, db)
-    if user.role != RoleEnum.admin:
-        raise HTTPException(status_code=403, detail="Acces interzis")
-    return db.query(Enrollment).all()
+
+    if user.role == RoleEnum.admin:
+        return db.query(Enrollment).all()
+
+    if user.role == RoleEnum.manager:
+        # doar înscrierile la cursurile create de el
+        course_ids = [
+            c.id for c in db.query(Course).filter(Course.created_by == user.id).all()
+        ]
+        if not course_ids:
+            return []
+        return db.query(Enrollment).filter(Enrollment.course_id.in_(course_ids)).all()
+
+    raise HTTPException(status_code=403, detail="Acces interzis")
 
 @router.get("/admin/user/{user_id}", response_model=List[EnrollmentResponse])
 def user_progress(user_id: int, token: str, db: Session = Depends(get_db)):

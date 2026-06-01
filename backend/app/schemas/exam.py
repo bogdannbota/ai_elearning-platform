@@ -84,6 +84,7 @@ class ExamResponse(ExamBase):
     is_published: bool
     created_by: int
     created_at: datetime
+    department_id: Optional[int] = None
 
     class Config:
         from_attributes = True

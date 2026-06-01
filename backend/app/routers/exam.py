@@ -60,43 +60,42 @@ def _get_question_or_404(db: Session, question_id: int) -> ExamQuestion:
 # ============================================================
 
 @router.get("/", response_model=List[ExamResponse])
-def list_exams(
-    token: str,
-    db: Session = Depends(get_db),
-    course_id: Optional[int] = None,
-    only_published: bool = False,
-):
-    """
-    Listează examenele.
-    - Admin/Manager: vede tot
-    - Student: vede doar publicate
-    """
+def list_exams(token, db=Depends(get_db), course_id=None, only_published=False):
     user = get_current_user(token, db)
-
     query = db.query(Exam)
+
     if course_id is not None:
         query = query.filter(Exam.course_id == course_id)
 
-    if user.is_student or only_published:
+    if user.is_admin:
+        pass  # adminul vede tot
+
+    elif user.is_teacher:
+        # vede toate examenele din departamentul lui
+        query = query.filter(Exam.department_id == user.department_id)
+
+    else:  # student
         query = query.filter(Exam.is_published == True)
+        # general (fără departament) SAU exact departamentul lui
+        query = query.filter(
+            or_(Exam.department_id == None,
+                Exam.department_id == user.department_id)
+        )
 
     return query.order_by(Exam.created_at.desc()).all()
 
-
 @router.post("/", response_model=ExamResponse, status_code=201)
-def create_exam(
-    data: ExamCreate,
-    token: str,
-    db: Session = Depends(get_db),
-):
-    """Creează un examen nou (fără întrebări încă)."""
+def create_exam(data: ExamCreate, token: str, db: Session = Depends(get_db)):
     user = get_current_user(token, db)
     _require_creator(user)
 
-    exam = Exam(
-        **data.model_dump(),
-        created_by=user.id,
-    )
+    payload = data.model_dump()
+    # Variant A: profesorul fixează automat examenul pe departamentul lui.
+    # Adminul lasă general (null) — vizibil tuturor.
+    if user.is_teacher:
+        payload["department_id"] = user.department_id
+
+    exam = Exam(**payload, created_by=user.id)
     db.add(exam)
     db.commit()
     db.refresh(exam)

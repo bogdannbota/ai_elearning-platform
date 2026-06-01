@@ -48,6 +48,8 @@ class Exam(Base):
     
     # Examen legat opțional de un curs
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=True)
+    # Examen legat opțional de un departament (Variant A: un examen = un departament)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
     
     # Imagine cover
     cover_image_path = Column(String, nullable=True)
