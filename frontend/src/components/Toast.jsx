@@ -2,60 +2,24 @@ import { useEffect } from "react";
 
 export default function Toast({ id, message, type, onClose }) {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose();
-    }, 3000);
-
-    return () => clearTimeout(timer);
+    const t = setTimeout(onClose, 3000);
+    return () => clearTimeout(t);
   }, [id, onClose]);
 
-  const typeConfig = {
-    success: {
-      bg: "bg-green-50",
-      border: "border-green-200",
-      icon: "✓",
-      text: "text-green-800",
-      button: "hover:bg-green-100",
-    },
-    error: {
-      bg: "bg-red-50",
-      border: "border-red-200",
-      icon: "✕",
-      text: "text-red-800",
-      button: "hover:bg-red-100",
-    },
-    warning: {
-      bg: "bg-yellow-50",
-      border: "border-yellow-200",
-      icon: "⚠",
-      text: "text-yellow-800",
-      button: "hover:bg-yellow-100",
-    },
-    info: {
-      bg: "bg-blue-50",
-      border: "border-blue-200",
-      icon: "ℹ",
-      text: "text-blue-800",
-      button: "hover:bg-blue-100",
-    },
-  };
-
-  const config = typeConfig[type] || typeConfig.info;
+  const cfg = {
+    success: { cls: "bg-emerald-50 border-emerald-200 text-emerald-800", icon: "✓" },
+    error:   { cls: "bg-rose-50 border-rose-200 text-rose-800", icon: "!" },
+    warning: { cls: "bg-amber-50 border-amber-200 text-amber-800", icon: "!" },
+    info:    { cls: "bg-slate-50 border-slate-200 text-slate-800", icon: "i" },
+  }[type] || { cls: "bg-slate-50 border-slate-200 text-slate-800", icon: "i" };
 
   return (
-    <div
-      className={`${config.bg} ${config.border} ${config.text} px-4 py-3 rounded-lg border shadow-md flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-auto`}
-    >
+    <div className={`${cfg.cls} px-4 py-3 rounded-xl border shadow-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-auto min-w-[260px]`}>
       <div className="flex items-center gap-3">
-        <span className="font-bold text-lg">{config.icon}</span>
-        <span className="font-medium">{message}</span>
+        <span className="w-5 h-5 rounded-full bg-white/70 flex items-center justify-center text-xs font-bold metric">{cfg.icon}</span>
+        <span className="font-medium text-sm">{message}</span>
       </div>
-      <button
-        onClick={onClose}
-        className={`${config.button} w-6 h-6 flex items-center justify-center rounded transition-colors`}
-      >
-        ✕
-      </button>
+      <button onClick={onClose} className="opacity-50 hover:opacity-100 transition">✕</button>
     </div>
   );
 }

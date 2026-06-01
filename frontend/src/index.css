@@ -1,1 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-display: "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+:root {
+  --ink: #0f1622;          /* text principal / butoane */
+  --ink-soft: #475569;     /* text secundar */
+  --line: #e3e7ec;         /* borduri */
+  --paper: #f5f6f8;        /* fundal pagină */
+  --surface: #ffffff;      /* carduri */
+  --accent: #1f5fbf;       /* accent rece (linkuri/activ) */
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(16,22,34,.04), 0 8px 24px -12px rgba(16,22,34,.12);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.015em; }
+
+/* ── Componente reutilizabile ── */
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  font-family: var(--font-display); font-weight: 700; font-size: .875rem;
+  padding: .625rem 1.1rem; border-radius: 10px; cursor: pointer;
+  transition: all .15s ease; border: 1px solid transparent; white-space: nowrap;
+}
+.btn-primary { background: var(--ink); color: #fff; }
+.btn-primary:hover { background: #1c2735; }
+.btn-ghost { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.btn-ghost:hover { background: #f0f2f5; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.input {
+  width: 100%; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: .65rem .85rem; font-size: .875rem; color: var(--ink);
+  transition: border-color .15s, box-shadow .15s;
+}
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31,95,191,.12); }
+
+.tag {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: .25rem .6rem; border-radius: 7px; border: 1px solid transparent;
+}
+
+.metric { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.eyebrow {
+  font-family: var(--font-display); font-size: .7rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+}
+
+table.data { width: 100%; border-collapse: collapse; font-size: .875rem; }
+table.data thead th {
+  text-align: left; font-size: .68rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-soft);
+  padding: .85rem 1.25rem; border-bottom: 1px solid var(--line);
+}
+table.data tbody td { padding: .9rem 1.25rem; border-bottom: 1px solid #f0f2f5; }
+table.data tbody tr:last-child td { border-bottom: none; }
+table.data tbody tr:hover { background: #fafbfc; }

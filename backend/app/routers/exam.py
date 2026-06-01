@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import or_
 from app.services.exam_grading_service import ExamGradingService
 from app.schemas.exam import ExamSubmission
 from app.database import get_db
@@ -720,3 +721,5 @@ def grade_attempt(
     service = ExamGradingService(db)
     attempt = service.grade_answers_manually(attempt, data.answers, user, data.overall_feedback)
     return _attempt_result_payload(attempt)
+
+
