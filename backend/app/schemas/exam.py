@@ -67,6 +67,7 @@ class ExamBase(BaseModel):
     available_to: Optional[datetime] = None
 
 class ExamCreate(ExamBase):
+    department_id: Optional[int] = None
     pass
 
 class ExamUpdate(BaseModel):

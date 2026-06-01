@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import datetime
 from decimal import Decimal
 
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import or_
@@ -91,17 +92,21 @@ def create_exam(data: ExamCreate, token: str, db: Session = Depends(get_db)):
     _require_creator(user)
 
     payload = data.model_dump()
-    # Variant A: profesorul fixează automat examenul pe departamentul lui.
-    # Adminul lasă general (null) — vizibil tuturor.
+    dept = payload.get("department_id")
+
     if user.is_teacher:
-        payload["department_id"] = user.department_id
+        # managerul poate alege „general" (None) sau departamentul lui;
+        # dacă încearcă alt departament, îl forțăm pe al lui
+        if dept is not None and dept != user.department_id:
+            dept = user.department_id
+        payload["department_id"] = dept
+    # adminul: păstrează ce a ales (orice departament sau None = general)
 
     exam = Exam(**payload, created_by=user.id)
     db.add(exam)
     db.commit()
     db.refresh(exam)
     return exam
-
 
 @router.get("/{exam_id}", response_model=ExamDetailResponse)
 def get_exam_detail(
