@@ -114,6 +114,9 @@ class CourseResponse(CourseBase):
     # Variant A: departamentul mapat (None = curs general, vizibil tuturor).
     # Citit din proprietatea Course.department_id (vezi models/course.py).
     department_id: Optional[int] = None
+    # Elevi cu vizibilitate explicită (gol = tot departamentul mapat vede cursul).
+    # Citit din proprietatea Course.student_ids (vezi models/course.py).
+    student_ids: List[int] = []
 
     class Config:
         from_attributes = True

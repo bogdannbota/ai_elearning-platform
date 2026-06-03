@@ -22,3 +22,4 @@ Thumbs.db
 
 # Logs
 *.log
+elearning_db.session.sql

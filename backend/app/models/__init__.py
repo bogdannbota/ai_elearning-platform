@@ -15,6 +15,7 @@ from app.models.course import (
     CourseCategory,
     CourseModule,
     DepartmentCourse,
+    CourseStudent,
     Enrollment,
     CourseModuleProgress,
     DifficultyLevel,
@@ -43,7 +44,7 @@ __all__ = [
     "User", "Department", "RoleEnum",
     # Course
     "Course", "CourseCategory", "CourseModule", "DepartmentCourse",
-    "Enrollment", "CourseModuleProgress", "DifficultyLevel",
+    "CourseStudent", "Enrollment", "CourseModuleProgress", "DifficultyLevel",
     # Learning Plan
     "LearningPlan", "LearningPlanItem", "LearningPlanAssignment",
     # Exam

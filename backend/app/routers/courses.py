@@ -18,7 +18,7 @@ import uuid
 from fastapi import UploadFile
 from typing import List, Optional
 from decimal import Decimal
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session, selectinload
@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.models import (
     Course, CourseCategory, CourseModule, DepartmentCourse,
-    Department, DifficultyLevel, User,
+    CourseStudent, Department, DifficultyLevel, User,
 )
 from app.routers.auth import get_current_user
 from app.schemas.course import CourseResponse, CourseDetailResponse
@@ -97,6 +97,22 @@ def _set_course_departments(db: Session, course_id: int, department_ids: str) ->
                 continue
 
 
+def _set_course_students(db: Session, course_id: int, student_ids: str) -> None:
+    """
+    Înlocuiește lista de elevi cu vizibilitate explicită pentru curs.
+    student_ids gol ("") => fără restricție (tot departamentul mapat vede cursul).
+    """
+    db.query(CourseStudent).filter(CourseStudent.course_id == course_id).delete()
+    if student_ids and student_ids.strip():
+        for raw in student_ids.split(","):
+            try:
+                sid = int(raw.strip())
+                if db.query(User).filter(User.id == sid).first():
+                    db.add(CourseStudent(course_id=course_id, student_id=sid))
+            except ValueError:
+                continue
+
+
 # ============================================================
 # Endpoint-uri
 # ============================================================
@@ -113,13 +129,14 @@ def list_courses(
     """
     Listează cursuri:
     - Admin/Manager: toate
-    - Student: doar publicate, filtrate pe departament (Variant A)
+    - Student: doar publicate, filtrate pe departament + elevi (Variant A)
     """
     user = get_current_user(token, db)
 
     query = db.query(Course).options(
         selectinload(Course.category),
         selectinload(Course.departments),
+        selectinload(Course.student_visibility),
     )
 
     if category_id is not None:
@@ -128,18 +145,32 @@ def list_courses(
     if PermissionService.is_student(user) or only_published:
         query = query.filter(Course.is_published == True)
 
-    # Variant A: studentul vede un curs DOAR dacă e "general" (fără nicio mapare
-    # la departament) SAU dacă e mapat pe departamentul lui.
+    # Variant A — vizibilitate student:
+    #   1. curs general (fără nicio mapare la departament) => îl vede toată lumea;
+    #   2. mapat pe departamentul meu ȘI (fără listă de elevi SAU eu sunt în listă).
     if PermissionService.is_student(user):
         mapped_course_ids = db.query(DepartmentCourse.course_id).distinct()
         my_dept_course_ids = (
             db.query(DepartmentCourse.course_id)
             .filter(DepartmentCourse.department_id == user.department_id)
         )
+        restricted_course_ids = db.query(CourseStudent.course_id).distinct()
+        my_restricted_course_ids = (
+            db.query(CourseStudent.course_id)
+            .filter(CourseStudent.student_id == user.id)
+        )
         query = query.filter(
             or_(
-                ~Course.id.in_(mapped_course_ids),     # curs general
-                Course.id.in_(my_dept_course_ids),     # cursul departamentului meu
+                # 1. Curs general
+                ~Course.id.in_(mapped_course_ids),
+                # 2. Departamentul meu + (fără restricție pe elevi SAU sunt printre elevii aleși)
+                and_(
+                    Course.id.in_(my_dept_course_ids),
+                    or_(
+                        ~Course.id.in_(restricted_course_ids),
+                        Course.id.in_(my_restricted_course_ids),
+                    ),
+                ),
             )
         )
 
@@ -157,6 +188,7 @@ def get_course(course_id: int, token: str, db: Session = Depends(get_db)):
             selectinload(Course.category),
             selectinload(Course.modules),
             selectinload(Course.departments),
+            selectinload(Course.student_visibility),
         )
         .filter(Course.id == course_id)
         .first()
@@ -184,6 +216,7 @@ def create_course(
     is_published: bool = Form(False),
     display_order: int = Form(0),
     department_ids: str = Form(""),
+    student_ids: str = Form(""),
     file: Optional[UploadFile] = File(None),
     cover_image: Optional[UploadFile] = File(None),
 ):
@@ -234,11 +267,13 @@ def create_course(
     db.commit()
     db.refresh(course)
 
-    # Asignează departamente dacă au fost trimise (gol => curs general)
+    # Asignează departamente și elevi (gol => fără restricție pe acea dimensiune)
     if department_ids.strip():
         _set_course_departments(db, course.id, department_ids)
-        db.commit()
-        db.refresh(course)
+    if student_ids.strip():
+        _set_course_students(db, course.id, student_ids)
+    db.commit()
+    db.refresh(course)
 
     return course
 
@@ -257,6 +292,7 @@ def update_course(
     is_published: Optional[bool] = Form(None),
     display_order: Optional[int] = Form(None),
     department_ids: Optional[str] = Form(None),
+    student_ids: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     cover_image: Optional[UploadFile] = File(None),
 ):
@@ -311,6 +347,11 @@ def update_course(
     if department_ids is not None:
         _set_course_departments(db, course_id, department_ids)
 
+    # Lista de elevi cu vizibilitate explicită.
+    # None => nu atinge; "" => fără restricție; "id,id" => doar acei elevi.
+    if student_ids is not None:
+        _set_course_students(db, course_id, student_ids)
+
     db.commit()
     db.refresh(course)
     return course
@@ -329,8 +370,9 @@ def delete_course(course_id: int, token: str, db: Session = Depends(get_db)):
     _delete_file_safe(course.file_path)
     _delete_file_safe(course.cover_image_path)
 
-    # Șterge mapările cu departamentele
+    # Șterge mapările cu departamentele și cu elevii
     db.query(DepartmentCourse).filter(DepartmentCourse.course_id == course_id).delete()
+    db.query(CourseStudent).filter(CourseStudent.course_id == course_id).delete()
 
     db.delete(course)
     db.commit()

@@ -23,6 +23,7 @@ export default function CursuriAdmin() {
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
@@ -33,12 +34,14 @@ export default function CursuriAdmin() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [c, cat, d] = await Promise.all([
+      const [c, cat, d, u] = await Promise.all([
         axios.get(`${API}/courses/?token=${token}`),
         axios.get(`${API}/course-categories/?token=${token}`),
         axios.get(`${API}/departments/?token=${token}`),
+        axios.get(`${API}/users/?token=${token}`),
       ]);
       setCourses(c.data); setCategories(cat.data); setDepartments(d.data);
+      setStudents((u.data || []).filter((x) => x.role === "student"));
     } catch { addToast("Eroare la încărcarea datelor", "error"); }
     finally { setLoading(false); }
   };
@@ -101,7 +104,14 @@ export default function CursuriAdmin() {
                           </div>
                         </td>
                         <td>{cat ? <span className="tag bg-slate-100 text-slate-600 border-slate-200">{cat.name}</span> : <span className="text-slate-300 text-xs">—</span>}</td>
-                        <td>{c.department_id ? <span className={`tag ${dt.chip}`}>{deptName(c.department_id) || `#${c.department_id}`}</span> : <span className="text-slate-400 text-xs">Toate</span>}</td>
+                        <td>
+                          {c.department_id
+                            ? <span className={`tag ${dt.chip}`}>
+                                {deptName(c.department_id) || `#${c.department_id}`}
+                                {c.student_ids?.length > 0 && <span className="ml-1 opacity-70">· {c.student_ids.length} elevi</span>}
+                              </span>
+                            : <span className="text-slate-400 text-xs">Toate</span>}
+                        </td>
                         <td><span className={`tag ${diff.cls}`}>{diff.label}</span></td>
                         <td style={{ textAlign: "center" }}><span className={`tag ${c.is_published ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-800 border-amber-200"}`}>{c.is_published ? "Publicat" : "Ciornă"}</span></td>
                         <td style={{ textAlign: "right" }}>
@@ -123,7 +133,7 @@ export default function CursuriAdmin() {
       </div>
 
       {showCourseModal && (
-        <CourseModal existing={editingCourse} categories={categories} departments={departments}
+        <CourseModal existing={editingCourse} categories={categories} departments={departments} students={students}
           onClose={() => { setShowCourseModal(false); setEditingCourse(null); }}
           onSaved={() => { setShowCourseModal(false); setEditingCourse(null); fetchAll(); }}
           token={token} addToast={addToast} />
@@ -135,7 +145,7 @@ export default function CursuriAdmin() {
   );
 }
 
-function CourseModal({ existing, categories, departments, onClose, onSaved, token, addToast }) {
+function CourseModal({ existing, categories, departments, students, onClose, onSaved, token, addToast }) {
   const isEdit = !!existing;
   const [form, setForm] = useState({
     title: existing?.title || "",
@@ -148,10 +158,22 @@ function CourseModal({ existing, categories, departments, onClose, onSaved, toke
     display_order: existing?.display_order ?? 0,
     department_id: existing?.department_id ? String(existing.department_id) : "",
   });
+  const [selectedStudents, setSelectedStudents] = useState(existing?.student_ids || []);
   const [file, setFile] = useState(null);
   const [coverImage, setCoverImage] = useState(null);
   const [coverPreview, setCoverPreview] = useState(existing?.cover_image_path ? `${API}/${existing.cover_image_path}` : null);
   const [saving, setSaving] = useState(false);
+
+  // elevii din departamentul ales (lista pe care o bifezi)
+  const deptStudents = (students || []).filter(
+    (s) => form.department_id && String(s.department_id) === form.department_id
+  );
+  const toggleStudent = (id) =>
+    setSelectedStudents((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const onDepartmentChange = (val) => {
+    setForm({ ...form, department_id: val });
+    setSelectedStudents([]); // resetăm elevii când schimbăm departamentul
+  };
 
   const handleCoverChange = (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -172,6 +194,8 @@ function CourseModal({ existing, categories, departments, onClose, onSaved, toke
       fd.append("is_published", form.is_published);
       fd.append("display_order", form.display_order);
       fd.append("department_ids", form.department_id);
+      // gol => fără restricție pe elevi (tot departamentul vede)
+      fd.append("student_ids", form.department_id ? selectedStudents.join(",") : "");
       if (file) fd.append("file", file);
       if (coverImage) fd.append("cover_image", coverImage);
       if (isEdit) { await axios.put(`${API}/courses/${existing.id}?token=${token}`, fd, { headers: { "Content-Type": "multipart/form-data" } }); addToast("Curs actualizat", "success"); }
@@ -182,84 +206,121 @@ function CourseModal({ existing, categories, departments, onClose, onSaved, toke
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: "rgba(15,22,34,.45)" }}>
-      <div className="surface w-full max-w-3xl my-8 p-8">
-        <h2 className="text-2xl font-extrabold text-slate-900 mb-1">{isEdit ? "Editează cursul" : "Curs nou"}</h2>
-        <p className="text-sm text-slate-500 mb-6 border-b pb-4" style={{ borderColor: "var(--line)" }}>Informațiile de bază. Lecțiile le adaugi separat.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(15,22,34,.45)" }}>
+      <div className="surface w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden">
 
-        <div className="mb-6">
-          <label className="block text-xs font-semibold text-slate-600 mb-2">Imagine cover (opțional)</label>
-          <div className="flex items-center gap-4">
-            {coverPreview
-              ? <img src={coverPreview} alt="cover" className="w-32 h-20 rounded-lg object-cover border" style={{ borderColor: "var(--line)" }} />
-              : <div className="w-32 h-20 rounded-lg bg-slate-50 border-2 border-dashed flex items-center justify-center text-slate-300" style={{ borderColor: "var(--line)" }}>cover</div>}
-            <div>
-              <input type="file" accept="image/*" onChange={handleCoverChange} className="hidden" id="cover-upload" />
-              <label htmlFor="cover-upload" className="btn btn-ghost cursor-pointer">{coverPreview ? "Schimbă" : "Încarcă"}</label>
-              {coverPreview && <button type="button" onClick={() => { setCoverImage(null); setCoverPreview(null); }} className="ml-2 text-xs text-rose-600 font-semibold">Elimină</button>}
+        {/* Header (fix) */}
+        <div className="px-8 pt-7 pb-4 border-b" style={{ borderColor: "var(--line)" }}>
+          <h2 className="text-2xl font-extrabold text-slate-900">{isEdit ? "Editează cursul" : "Curs nou"}</h2>
+          <p className="text-sm text-slate-500 mt-1">Informațiile de bază. Lecțiile le adaugi separat.</p>
+        </div>
+
+        {/* Body (scrollabil) */}
+        <div className="px-8 py-6 overflow-y-auto flex-1">
+
+          <div className="mb-6">
+            <label className="block text-xs font-semibold text-slate-600 mb-2">Imagine cover (opțional)</label>
+            <div className="flex items-center gap-4">
+              {coverPreview
+                ? <img src={coverPreview} alt="cover" className="w-32 h-20 rounded-lg object-cover border" style={{ borderColor: "var(--line)" }} />
+                : <div className="w-32 h-20 rounded-lg bg-slate-50 border-2 border-dashed flex items-center justify-center text-slate-300" style={{ borderColor: "var(--line)" }}>cover</div>}
+              <div>
+                <input type="file" accept="image/*" onChange={handleCoverChange} className="hidden" id="cover-upload" />
+                <label htmlFor="cover-upload" className="btn btn-ghost cursor-pointer">{coverPreview ? "Schimbă" : "Încarcă"}</label>
+                {coverPreview && <button type="button" onClick={() => { setCoverImage(null); setCoverPreview(null); }} className="ml-2 text-xs text-rose-600 font-semibold">Elimină</button>}
+              </div>
             </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Titlu *</label>
+              <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="ex: Introducere în Python" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Descriere scurtă</label>
+              <input className="input" value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Descriere completă</label>
+              <textarea rows={4} className="input resize-none" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Categorie</label>
+                <select className="input" value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
+                  <option value="">— Fără categorie —</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Dificultate</label>
+                <select className="input" value={form.difficulty_level} onChange={(e) => setForm({ ...form, difficulty_level: e.target.value })}>
+                  {DIFFICULTY.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Durată (min)</label>
+                <input type="number" min={0} className="input text-center" value={form.duration_minutes} onChange={(e) => setForm({ ...form, duration_minutes: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Ordine</label>
+                <input type="number" min={0} className="input text-center" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Departament</label>
+                <select className="input" value={form.department_id} onChange={(e) => onDepartmentChange(e.target.value)}>
+                  <option value="">— Toate —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Elevi cu acces — apare doar când e ales un departament */}
+            {form.department_id && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Elevi cu acces <span className="text-slate-400 font-normal">(gol = tot departamentul)</span>
+                </label>
+                <div className="border rounded-xl p-3 max-h-44 overflow-y-auto bg-slate-50" style={{ borderColor: "var(--line)" }}>
+                  {deptStudents.length === 0 ? (
+                    <p className="text-xs text-slate-400">Niciun elev în acest departament.</p>
+                  ) : (
+                    deptStudents.map((s) => (
+                      <label key={s.id} className="flex items-center gap-2 py-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedStudents.includes(s.id)}
+                          onChange={() => toggleStudent(s.id)}
+                          className="w-4 h-4"
+                          style={{ accentColor: "var(--ink)" }}
+                        />
+                        <span className="text-sm text-slate-700">{s.full_name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Material PDF (opțional)</label>
+              <div className="border-2 border-dashed bg-slate-50 rounded-xl p-4 text-center" style={{ borderColor: "var(--line)" }}>
+                <input id="pdfInput" type="file" accept=".pdf" onChange={(e) => setFile(e.target.files[0])} className="hidden" />
+                <label htmlFor="pdfInput" className="cursor-pointer block text-sm text-slate-500">
+                  {file ? <span className="font-semibold text-slate-700">{file.name}</span> : existing?.file_path ? "PDF existent · click pentru a-l schimba" : "Click pentru a încărca un PDF"}
+                </label>
+              </div>
+            </div>
+            <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border cursor-pointer" style={{ borderColor: "var(--line)" }}>
+              <input type="checkbox" checked={form.is_published} onChange={(e) => setForm({ ...form, is_published: e.target.checked })} className="w-5 h-5" style={{ accentColor: "var(--ink)" }} />
+              <span className="text-sm font-semibold text-slate-900">Publică imediat</span>
+            </label>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Titlu *</label>
-            <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="ex: Introducere în Python" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Descriere scurtă</label>
-            <input className="input" value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Descriere completă</label>
-            <textarea rows={4} className="input resize-none" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Categorie</label>
-              <select className="input" value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-                <option value="">— Fără categorie —</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Dificultate</label>
-              <select className="input" value={form.difficulty_level} onChange={(e) => setForm({ ...form, difficulty_level: e.target.value })}>
-                {DIFFICULTY.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Durată (min)</label>
-              <input type="number" min={0} className="input text-center" value={form.duration_minutes} onChange={(e) => setForm({ ...form, duration_minutes: parseInt(e.target.value) || 0 })} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Ordine</label>
-              <input type="number" min={0} className="input text-center" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: parseInt(e.target.value) || 0 })} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Departament</label>
-              <select className="input" value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>
-                <option value="">— Toate —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Material PDF (opțional)</label>
-            <div className="border-2 border-dashed bg-slate-50 rounded-xl p-4 text-center" style={{ borderColor: "var(--line)" }}>
-              <input id="pdfInput" type="file" accept=".pdf" onChange={(e) => setFile(e.target.files[0])} className="hidden" />
-              <label htmlFor="pdfInput" className="cursor-pointer block text-sm text-slate-500">
-                {file ? <span className="font-semibold text-slate-700">{file.name}</span> : existing?.file_path ? "PDF existent · click pentru a-l schimba" : "Click pentru a încărca un PDF"}
-              </label>
-            </div>
-          </div>
-          <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border cursor-pointer" style={{ borderColor: "var(--line)" }}>
-            <input type="checkbox" checked={form.is_published} onChange={(e) => setForm({ ...form, is_published: e.target.checked })} className="w-5 h-5" style={{ accentColor: "var(--ink)" }} />
-            <span className="text-sm font-semibold text-slate-900">Publică imediat</span>
-          </label>
-        </div>
-
-        <div className="flex gap-3 mt-8">
+        {/* Footer (fix) */}
+        <div className="px-8 py-5 border-t flex gap-3" style={{ borderColor: "var(--line)" }}>
           <button onClick={handleSubmit} disabled={saving} className="btn btn-primary flex-1">{saving ? "Se salvează..." : isEdit ? "Salvează" : "Crează cursul"}</button>
           <button onClick={onClose} disabled={saving} className="btn btn-ghost flex-1">Anulează</button>
         </div>

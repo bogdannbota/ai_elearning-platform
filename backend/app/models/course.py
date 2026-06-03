@@ -4,6 +4,7 @@ Modele pentru cursuri:
 - Course: cursul propriu-zis (extins față de versiunea inițială)
 - CourseModule: lecții/capitole în curs
 - DepartmentCourse: link many-to-many curs <-> departament
+- CourseStudent: vizibilitate explicită pe elevi (subset al departamentului)
 - Enrollment: înscrierea unui student la un curs
 - CourseModuleProgress: tracking per modul per student
 """
@@ -86,11 +87,19 @@ class Course(Base):
         cascade="all, delete-orphan",
         order_by="CourseModule.display_order"
     )
+
     @property
     def department_id(self):
         """Primul departament mapat (Variant A: un curs = un departament)."""
         return self.departments[0].department_id if self.departments else None
+
+    @property
+    def student_ids(self):
+        """Elevii cu vizibilitate explicită. Gol => tot departamentul mapat vede cursul."""
+        return [cs.student_id for cs in self.student_visibility]
+
     departments = relationship("DepartmentCourse", back_populates="course")
+    student_visibility = relationship("CourseStudent", back_populates="course")
     enrollments = relationship("Enrollment", back_populates="course")
 
 
@@ -139,6 +148,22 @@ class DepartmentCourse(Base):
     # Relationships
     department = relationship("Department", foreign_keys=[department_id])
     course = relationship("Course", back_populates="departments")
+
+
+class CourseStudent(Base):
+    """
+    Vizibilitate explicită pe elevi: doar acești elevi văd cursul (subset al departamentului).
+    Dacă un curs nu are nicio intrare aici, îl vede tot departamentul mapat (comportament implicit).
+    """
+    __tablename__ = "course_students"
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # Relationships
+    course = relationship("Course", back_populates="student_visibility")
+    student = relationship("User", foreign_keys=[student_id])
 
 
 class Enrollment(Base):
