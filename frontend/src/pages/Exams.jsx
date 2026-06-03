@@ -4,7 +4,7 @@ import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { GridSkeletons } from "../components/SkeletonLoader";
-import Modal from "../components/Modal";
+import AttemptReviewModal from "../components/AttemptReviewModal";
 
 const API = "http://127.0.0.1:8000";
 
@@ -14,6 +14,7 @@ const STATUS = {
   submitted:   ["bg-amber-50 text-amber-800 border-amber-200", "În corectare"],
   graded:      ["bg-blue-50 text-blue-700 border-blue-200", "Corectat"],
   in_progress: ["bg-slate-100 text-slate-600 border-slate-200", "În curs"],
+  expired:     ["bg-slate-100 text-slate-600 border-slate-200", "Expirat"],
 };
 
 export default function Exams() {
@@ -25,7 +26,6 @@ export default function Exams() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("available");
   const [selected, setSelected] = useState(null);
-  const [showResult, setShowResult] = useState(false);
 
   useEffect(() => { fetchAll(); }, []);
   const fetchAll = async () => {
@@ -133,7 +133,7 @@ export default function Exams() {
                       <td style={{ textAlign: "center" }}>{a.score !== null ? <span className={`metric font-bold ${a.status === "passed" ? "text-emerald-600" : "text-rose-500"}`}>{a.score}%</span> : <span className="text-slate-300">—</span>}</td>
                       <td style={{ textAlign: "center" }}>{badge(a.status)}</td>
                       <td style={{ textAlign: "center" }} className="text-slate-500">{a.submitted_at ? new Date(a.submitted_at).toLocaleDateString("ro-RO") : "—"}</td>
-                      <td style={{ textAlign: "right" }}><button onClick={() => { setSelected(a); setShowResult(true); }} className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Detalii →</button></td>
+                      <td style={{ textAlign: "right" }}><button onClick={() => setSelected(a)} className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Detalii →</button></td>
                     </tr>
                   ))}
                   {finished.length === 0 && <tr><td colSpan="5" className="text-center py-12 text-slate-400">Nu ai finalizat niciun examen încă.</td></tr>}
@@ -144,24 +144,14 @@ export default function Exams() {
         )}
       </div>
 
-      <Modal isOpen={showResult} title="Detalii tentativă" onClose={() => setShowResult(false)}>
-        {selected && (
-          <div className="space-y-5">
-            <div className="text-center pb-5 border-b" style={{ borderColor: "var(--line)" }}>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">{selected.exam_title}</h3>
-              {badge(selected.status)}
-            </div>
-            {selected.score !== null ? (
-              <div className="text-center p-5 rounded-xl bg-slate-50 border" style={{ borderColor: "var(--line)" }}>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Scor final</p>
-                <p className={`metric text-4xl font-bold ${selected.status === "passed" ? "text-emerald-600" : "text-rose-500"}`}>{selected.score}%</p>
-              </div>
-            ) : (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">Examen cu răspuns liber, în curs de corectare.</div>
-            )}
-          </div>
-        )}
-      </Modal>
+      {selected && (
+        <AttemptReviewModal
+          attempt={selected}
+          token={token}
+          addToast={addToast}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

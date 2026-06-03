@@ -23,6 +23,7 @@ export default function TakeExam() {
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [review, setReview] = useState(null);     // detaliu cu răspunsuri corecte
   const [timeLeft, setTimeLeft] = useState(null);
   const submittedRef = useRef(false);
 
@@ -44,6 +45,16 @@ export default function TakeExam() {
     return () => { active = false; };
   }, [examId]);
 
+  // După trimitere, încarcă detaliul cu răspunsurile corecte (pt. review)
+  const loadReview = useCallback(async (id) => {
+    try {
+      const res = await axios.get(`${API}/exams/attempts/${id}?token=${token}`);
+      setReview(res.data);
+    } catch {
+      // review-ul e opțional; dacă pică, rămâne doar scorul
+    }
+  }, [token]);
+
   const handleSubmit = useCallback(async (auto = false) => {
     if (submittedRef.current) return;
     submittedRef.current = true;
@@ -59,12 +70,16 @@ export default function TakeExam() {
       const res = await axios.post(`${API}/exams/attempts/${attemptId}/submit?token=${token}`, payload);
       setResult(res.data);
       if (auto) addToast("Timpul a expirat — examen trimis automat", "warning");
+      // dacă nu așteaptă corectare manuală, încărcăm imediat rezolvarea
+      if (!(res.data.requires_manual_grading && res.data.score === null)) {
+        loadReview(attemptId);
+      }
     } catch (e) {
       submittedRef.current = false;
       addToast(e.response?.data?.detail || "Eroare la trimitere", "error");
       setSubmitting(false);
     }
-  }, [exam, answers, attemptId, token, addToast]);
+  }, [exam, answers, attemptId, token, addToast, loadReview]);
 
   useEffect(() => {
     if (timeLeft === null || result) return;
@@ -90,12 +105,16 @@ export default function TakeExam() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-500">Se pregătește examenul...</div>;
 
+  // ============================================================
+  // ECRAN DE REZULTAT + REVIZUIRE
+  // ============================================================
   if (result) {
     const pending = result.requires_manual_grading && result.score === null;
     const passed = result.status === "passed";
     return (
       <div className="min-h-screen py-12 px-4">
-        <div className="max-w-xl mx-auto surface p-8 text-center">
+        {/* Card scor */}
+        <div className="max-w-2xl mx-auto surface p-8 text-center">
           {pending ? (
             <>
               <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Examen trimis</h1>
@@ -111,10 +130,92 @@ export default function TakeExam() {
           )}
           <button onClick={() => navigate("/my-exams")} className="btn btn-primary w-full mt-8">Înapoi la examene</button>
         </div>
+
+        {/* Revizuire răspunsuri */}
+        {!pending && review?.questions && (
+          <div className="max-w-2xl mx-auto mt-8">
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Revizuire răspunsuri</h2>
+            <p className="text-sm text-slate-500 mb-5">Vezi ce ai răspuns și care era varianta corectă.</p>
+            <div className="space-y-5">
+              {review.questions.map((q, i) => {
+                const isOpen = q.question_type === "open_text";
+                const earned = q.points_earned;
+                // status întrebare: corect / greșit / parțial / în corectare
+                let pill;
+                if (isOpen && earned === null) pill = ["bg-amber-50 text-amber-800 border-amber-200", "În corectare"];
+                else if (q.is_correct === true) pill = ["bg-emerald-50 text-emerald-700 border-emerald-200", "Corect"];
+                else if (earned != null && earned > 0) pill = ["bg-amber-50 text-amber-800 border-amber-200", "Parțial"];
+                else pill = ["bg-rose-50 text-rose-700 border-rose-200", "Greșit"];
+
+                return (
+                  <div key={q.id} className="surface p-6">
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-start gap-3">
+                        <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 font-bold text-sm flex items-center justify-center flex-shrink-0 metric">{i + 1}</span>
+                        <div>
+                          <p className="font-semibold text-slate-900 leading-snug">{q.question_text}</p>
+                          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider metric">
+                            {earned != null ? `${earned}/${q.points}` : `— /${q.points}`} {q.points === 1 ? "punct" : "puncte"}
+                          </span>
+                        </div>
+                      </div>
+                      <span className={`tag flex-shrink-0 ${pill[0]}`}>{pill[1]}</span>
+                    </div>
+
+                    {isOpen ? (
+                      <div className="ml-11 space-y-2">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Răspunsul tău</p>
+                        <p className="text-sm text-slate-700 bg-slate-50 border rounded-xl px-4 py-3 whitespace-pre-wrap" style={{ borderColor: "var(--line)" }}>
+                          {q.text_answer?.trim() ? q.text_answer : <span className="text-slate-400 italic">Fără răspuns</span>}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="ml-11 space-y-3">
+                        {q.options.map((o) => {
+                          const chosen = q.selected_option_ids?.includes(o.id);
+                          const correct = o.is_correct;
+                          let style, badge;
+                          if (correct) {
+                            style = { borderColor: "#10b981", background: "rgba(16,185,129,.07)" };
+                            badge = chosen ? "✓ Răspunsul tău (corect)" : "Răspuns corect";
+                          } else if (chosen) {
+                            style = { borderColor: "#be123c", background: "rgba(190,18,60,.06)" };
+                            badge = "✕ Răspunsul tău";
+                          } else {
+                            style = { borderColor: "var(--line)" };
+                            badge = null;
+                          }
+                          return (
+                            <div key={o.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-sm font-medium" style={style}>
+                              <span className="text-slate-800">{o.option_text}</span>
+                              {badge && (
+                                <span className={`text-xs font-bold flex-shrink-0 ${correct ? "text-emerald-600" : "text-rose-500"}`}>{badge}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {q.explanation && (
+                      <div className="ml-11 mt-4 text-sm text-slate-600 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                        <span className="font-semibold text-blue-700">Explicație: </span>{q.explanation}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={() => navigate("/my-exams")} className="btn btn-ghost w-full mt-6">Înapoi la examene</button>
+          </div>
+        )}
       </div>
     );
   }
 
+  // ============================================================
+  // ECRAN DE SUSȚINERE
+  // ============================================================
   const lowTime = timeLeft !== null && timeLeft <= 60;
   return (
     <div className="min-h-screen pb-32">

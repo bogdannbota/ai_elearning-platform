@@ -4,7 +4,7 @@ Endpoint-uri pentru admin/manager (creare/editare/ștergere)
 și student (susținere examen).
 """
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta 
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -490,6 +490,7 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
                 raise HTTPException(status_code=403, detail="Nu ești înscris la acest examen.")
 
     # Reia o tentativă în curs dacă există
+   # Reia o tentativă în curs dacă există
     attempt = (
         db.query(ExamAttempt)
         .filter(
@@ -500,12 +501,25 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
         .first()
     )
 
+    # Dacă tentativa în curs a depășit timpul alocat, o închidem (expired)
+    # ca să conteze la numărul de încercări (altfel s-ar relua la infinit).
+    if attempt and exam.duration_minutes and exam.duration_minutes > 0:
+        started = attempt.started_at
+        if started and started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if started and now > started + timedelta(minutes=exam.duration_minutes):
+            attempt.status = ExamAttemptStatus.expired
+            attempt.submitted_at = now
+            db.commit()
+            attempt = None
+
     if not attempt:
         used = (
             db.query(ExamAttempt)
             .filter(
                 ExamAttempt.exam_id == exam_id,
                 ExamAttempt.student_id == user.id,
+                ExamAttempt.status != ExamAttemptStatus.in_progress,
             )
             .count()
         )
