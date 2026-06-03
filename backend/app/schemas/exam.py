@@ -58,6 +58,7 @@ class ExamBase(BaseModel):
     title: str = Field(..., min_length=3)
     description: Optional[str] = None
     course_id: Optional[int] = None
+    department_id: Optional[int] = None
     duration_minutes: int = 30
     max_attempts: int = 1
     passing_score: Decimal = Decimal("70.0")
@@ -67,15 +68,19 @@ class ExamBase(BaseModel):
     available_to: Optional[datetime] = None
 
 class ExamCreate(ExamBase):
-    department_id: Optional[int] = None
-    pass
+    # elevii nominalizați la creare
+    student_ids: List[int] = []
 
 class ExamUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    department_id: Optional[int] = None
+    student_ids: Optional[List[int]] = None  # dacă e trimis, rescrie lista de elevi
     duration_minutes: Optional[int] = None
     max_attempts: Optional[int] = None
     passing_score: Optional[Decimal] = None
+    shuffle_questions: Optional[bool] = None
+    show_result_immediately: Optional[bool] = None
     is_published: Optional[bool] = None
     available_from: Optional[datetime] = None
     available_to: Optional[datetime] = None
@@ -85,7 +90,6 @@ class ExamResponse(ExamBase):
     is_published: bool
     created_by: int
     created_at: datetime
-    department_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -94,8 +98,7 @@ class ExamDetailResponse(ExamResponse):
     questions: List[ExamQuestionResponse] = []
 
 class ExamPublicDetailResponse(ExamResponse):
-    """Aici, în mod normal, frontend-ul primește întrebările, dar 
-    logică din router trebuie să elimine `is_correct` din opțiuni."""
+    """Pentru student - routerul elimină `is_correct` din opțiuni."""
     questions: List[ExamQuestionResponse] = []
 
 # ==========================================

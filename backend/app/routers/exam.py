@@ -4,27 +4,27 @@ Endpoint-uri pentru admin/manager (creare/editare/ștergere)
 și student (susținere examen).
 """
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
-
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
+
 from app.services.exam_grading_service import ExamGradingService
-from app.schemas.exam import ExamSubmission
 from app.database import get_db
 from app.models.exam import (
     Exam, ExamQuestion, ExamQuestionOption,
-    ExamAttempt, ExamStudentAnswer,
+    ExamAttempt, ExamStudentAnswer, ExamAssignment,
     QuestionType, ExamAttemptStatus,
 )
-from app.models.user import User
+from app.models.user import User, RoleEnum
 from app.routers.auth import get_current_user
 from app.schemas.exam import (
     ExamCreate, ExamUpdate, ExamResponse,
     ExamDetailResponse, ExamPublicDetailResponse,
-    ExamQuestionCreate, ExamQuestionUpdate, ExamQuestionResponse,ExamGradingSubmission
+    ExamQuestionCreate, ExamQuestionUpdate, ExamQuestionResponse,
+    ExamSubmission, ExamGradingSubmission,
 )
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
@@ -57,12 +57,39 @@ def _get_question_or_404(db: Session, question_id: int) -> ExamQuestion:
     return q
 
 
+def _sync_assignments(db: Session, exam: Exam, student_ids, assigned_by: int):
+    """Rescrie complet lista de elevi nominalizați pentru un examen."""
+    db.query(ExamAssignment).filter(ExamAssignment.exam_id == exam.id).delete()
+    for sid in set(student_ids or []):
+        student = (
+            db.query(User)
+            .filter(User.id == sid, User.role == RoleEnum.student)
+            .first()
+        )
+        if student:
+            db.add(ExamAssignment(
+                exam_id=exam.id, student_id=sid, assigned_by=assigned_by
+            ))
+
+
 # ============================================================
 # CRUD Examen
 # ============================================================
 
 @router.get("/", response_model=List[ExamResponse])
-def list_exams(token, db=Depends(get_db), course_id=None, only_published=False):
+def list_exams(
+    token: str,
+    db: Session = Depends(get_db),
+    course_id: Optional[int] = None,
+    only_published: bool = False,
+):
+    """
+    Listează examenele.
+    - Admin: vede tot
+    - Profesor: vede examenele din departamentul lui
+    - Student: doar publicate, unde e nominalizat SAU care nu au nicio
+      nominalizare (vizibile pe departament / generale)
+    """
     user = get_current_user(token, db)
     query = db.query(Exam)
 
@@ -70,53 +97,65 @@ def list_exams(token, db=Depends(get_db), course_id=None, only_published=False):
         query = query.filter(Exam.course_id == course_id)
 
     if user.is_admin:
-        pass  # adminul vede tot
+        pass  # vede tot
 
     elif user.is_teacher:
-        # vede toate examenele din departamentul lui
         query = query.filter(Exam.department_id == user.department_id)
 
     else:  # student
         query = query.filter(Exam.is_published == True)
-        # general (fără departament) SAU exact departamentul lui
-        query = query.filter(
-            or_(Exam.department_id == None,
-                Exam.department_id == user.department_id)
+
+        assigned_exam_ids = db.query(ExamAssignment.exam_id).distinct()
+        my_exam_ids = (
+            db.query(ExamAssignment.exam_id)
+            .filter(ExamAssignment.student_id == user.id)
         )
+        query = query.filter(
+            or_(
+                # nominalizat explicit pe mine
+                Exam.id.in_(my_exam_ids),
+                # examen fără nominalizări => vizibil pe departamentul meu / general
+                and_(
+                    ~Exam.id.in_(assigned_exam_ids),
+                    or_(
+                        Exam.department_id == None,  # noqa: E711
+                        Exam.department_id == user.department_id,
+                    ),
+                ),
+            )
+        )
+
+    if only_published:
+        query = query.filter(Exam.is_published == True)
 
     return query.order_by(Exam.created_at.desc()).all()
 
+
 @router.post("/", response_model=ExamResponse, status_code=201)
 def create_exam(data: ExamCreate, token: str, db: Session = Depends(get_db)):
+    """Creează un examen nou + asignează elevii selectați."""
     user = get_current_user(token, db)
     _require_creator(user)
 
     payload = data.model_dump()
-    dept = payload.get("department_id")
-
-    if user.is_teacher:
-        # managerul poate alege „general" (None) sau departamentul lui;
-        # dacă încearcă alt departament, îl forțăm pe al lui
-        if dept is not None and dept != user.department_id:
-            dept = user.department_id
-        payload["department_id"] = dept
-    # adminul: păstrează ce a ales (orice departament sau None = general)
+    student_ids = payload.pop("student_ids", [])
 
     exam = Exam(**payload, created_by=user.id)
     db.add(exam)
+    db.flush()  # ca să avem exam.id înainte de asignări
+
+    _sync_assignments(db, exam, student_ids, user.id)
+
     db.commit()
     db.refresh(exam)
     return exam
 
+
 @router.get("/{exam_id}", response_model=ExamDetailResponse)
-def get_exam_detail(
-    exam_id: int,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def get_exam_detail(exam_id: int, token: str, db: Session = Depends(get_db)):
     """
     Detalii examen + toate întrebările cu răspunsuri corecte.
-    DOAR pentru admin/manager. Studentul folosește /exams/{id}/take.
+    DOAR pentru admin/manager.
     """
     user = get_current_user(token, db)
     _require_creator(user)
@@ -133,11 +172,7 @@ def get_exam_detail(
 
 
 @router.get("/{exam_id}/public", response_model=ExamPublicDetailResponse)
-def get_exam_public(
-    exam_id: int,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def get_exam_public(exam_id: int, token: str, db: Session = Depends(get_db)):
     """Vizualizare examen pentru student - FĂRĂ răspunsuri corecte."""
     user = get_current_user(token, db)
 
@@ -157,21 +192,21 @@ def get_exam_public(
 
 
 @router.put("/{exam_id}", response_model=ExamResponse)
-def update_exam(
-    exam_id: int,
-    data: ExamUpdate,
-    token: str,
-    db: Session = Depends(get_db),
-):
-    """Editează setările examenului."""
+def update_exam(exam_id: int, data: ExamUpdate, token: str, db: Session = Depends(get_db)):
+    """Editează setările examenului (și opțional lista de elevi)."""
     user = get_current_user(token, db)
     _require_creator(user)
 
     exam = _get_exam_or_404(db, exam_id)
 
     update_data = data.model_dump(exclude_unset=True)
+    student_ids = update_data.pop("student_ids", None)  # tratat separat
+
     for key, value in update_data.items():
         setattr(exam, key, value)
+
+    if student_ids is not None:
+        _sync_assignments(db, exam, student_ids, user.id)
 
     db.commit()
     db.refresh(exam)
@@ -179,12 +214,8 @@ def update_exam(
 
 
 @router.delete("/{exam_id}", status_code=204)
-def delete_exam(
-    exam_id: int,
-    token: str,
-    db: Session = Depends(get_db),
-):
-    """Șterge examenul (cascade pe întrebări și tentative)."""
+def delete_exam(exam_id: int, token: str, db: Session = Depends(get_db)):
+    """Șterge examenul (cascade pe întrebări, tentative și asignări)."""
     user = get_current_user(token, db)
     _require_creator(user)
 
@@ -194,18 +225,13 @@ def delete_exam(
 
 
 @router.post("/{exam_id}/publish", response_model=ExamResponse)
-def publish_exam(
-    exam_id: int,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def publish_exam(exam_id: int, token: str, db: Session = Depends(get_db)):
     """Publică examenul (devine vizibil pentru studenți)."""
     user = get_current_user(token, db)
     _require_creator(user)
 
     exam = _get_exam_or_404(db, exam_id)
 
-    # Validare: trebuie să aibă cel puțin o întrebare
     q_count = db.query(ExamQuestion).filter(ExamQuestion.exam_id == exam_id).count()
     if q_count == 0:
         raise HTTPException(
@@ -220,11 +246,7 @@ def publish_exam(
 
 
 @router.post("/{exam_id}/unpublish", response_model=ExamResponse)
-def unpublish_exam(
-    exam_id: int,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def unpublish_exam(exam_id: int, token: str, db: Session = Depends(get_db)):
     """Retrage publicarea (nu mai e vizibil pentru studenți)."""
     user = get_current_user(token, db)
     _require_creator(user)
@@ -241,30 +263,16 @@ def unpublish_exam(
 # ============================================================
 
 @router.post("/{exam_id}/questions", response_model=ExamQuestionResponse, status_code=201)
-def add_question(
-    exam_id: int,
-    data: ExamQuestionCreate,
-    token: str,
-    db: Session = Depends(get_db),
-):
-    """
-    Adaugă o întrebare la examen, cu opțiunile sale (validate de Pydantic).
-    Pentru OpenText: fără opțiuni.
-    Pentru SingleChoice: exact 1 opțiune corectă.
-    Pentru MultipleChoice: ≥ 1 opțiune corectă.
-    """
+def add_question(exam_id: int, data: ExamQuestionCreate, token: str, db: Session = Depends(get_db)):
+    """Adaugă o întrebare la examen, cu opțiunile sale."""
     user = get_current_user(token, db)
     _require_creator(user)
     _get_exam_or_404(db, exam_id)
 
-    # Calculează display_order automat dacă nu e setat
     if data.display_order == 0:
-        last_order = (
-            db.query(ExamQuestion)
-            .filter(ExamQuestion.exam_id == exam_id)
-            .count()
+        display_order = (
+            db.query(ExamQuestion).filter(ExamQuestion.exam_id == exam_id).count() + 1
         )
-        display_order = last_order + 1
     else:
         display_order = data.display_order
 
@@ -278,18 +286,16 @@ def add_question(
         image_path=data.image_path,
     )
     db.add(question)
-    db.flush()  # ca să avem question.id pentru opțiuni
+    db.flush()
 
-    # Adăugăm opțiunile (doar pentru SingleChoice & MultipleChoice)
     if data.question_type != QuestionType.open_text:
         for idx, opt in enumerate(data.options):
-            option = ExamQuestionOption(
+            db.add(ExamQuestionOption(
                 question_id=question.id,
                 option_text=opt.option_text,
                 is_correct=opt.is_correct,
                 display_order=opt.display_order if opt.display_order else idx,
-            )
-            db.add(option)
+            ))
 
     db.commit()
     db.refresh(question)
@@ -297,18 +303,12 @@ def add_question(
 
 
 @router.put("/questions/{question_id}", response_model=ExamQuestionResponse)
-def update_question(
-    question_id: int,
-    data: ExamQuestionUpdate,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def update_question(question_id: int, data: ExamQuestionUpdate, token: str, db: Session = Depends(get_db)):
     """Editează textul/punctele/explicația unei întrebări."""
     user = get_current_user(token, db)
     _require_creator(user)
 
     question = _get_question_or_404(db, question_id)
-
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(question, key, value)
@@ -319,11 +319,7 @@ def update_question(
 
 
 @router.delete("/questions/{question_id}", status_code=204)
-def delete_question(
-    question_id: int,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def delete_question(question_id: int, token: str, db: Session = Depends(get_db)):
     """Șterge o întrebare (cascade pe opțiuni și răspunsuri studenți)."""
     user = get_current_user(token, db)
     _require_creator(user)
@@ -346,19 +342,14 @@ def add_option_to_question(
     _require_creator(user)
 
     question = _get_question_or_404(db, question_id)
-
     if question.question_type == QuestionType.open_text:
-        raise HTTPException(
-            status_code=400,
-            detail="Întrebările OpenText nu pot avea opțiuni.",
-        )
+        raise HTTPException(status_code=400, detail="Întrebările OpenText nu pot avea opțiuni.")
 
     last_order = (
         db.query(ExamQuestionOption)
         .filter(ExamQuestionOption.question_id == question_id)
         .count()
     )
-
     option = ExamQuestionOption(
         question_id=question_id,
         option_text=option_text,
@@ -378,11 +369,7 @@ def add_option_to_question(
 
 
 @router.delete("/options/{option_id}", status_code=204)
-def delete_option(
-    option_id: int,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def delete_option(option_id: int, token: str, db: Session = Depends(get_db)):
     """Șterge o opțiune."""
     user = get_current_user(token, db)
     _require_creator(user)
@@ -393,7 +380,8 @@ def delete_option(
     db.delete(option)
     db.commit()
 
-    # ============================================================
+
+# ============================================================
 # STUDENT - Susținere examen (attempt + auto-grading + rezultat)
 # ============================================================
 
@@ -459,8 +447,8 @@ def my_attempts(token: str, db: Session = Depends(get_db)):
 @router.post("/{exam_id}/start")
 def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
     """
-    Începe (sau reia) o tentativă. Verifică publicarea și max_attempts.
-    Întoarce attempt_id + întrebările sanitizate (fără răspunsuri corecte).
+    Începe (sau reia) o tentativă. Verifică publicarea, fereastra de
+    disponibilitate, nominalizarea și max_attempts.
     """
     user = get_current_user(token, db)
 
@@ -476,6 +464,30 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Examenul nu este publicat.")
     if not exam.questions:
         raise HTTPException(status_code=400, detail="Examenul nu are întrebări.")
+
+    # Fereastra de disponibilitate (valabil de la / până la)
+    now = datetime.now(timezone.utc)
+    if exam.available_from and now < exam.available_from:
+        raise HTTPException(status_code=403, detail="Examenul nu a început încă.")
+    if exam.available_to and now > exam.available_to:
+        raise HTTPException(status_code=403, detail="Perioada examenului s-a încheiat.")
+
+    # Dacă examenul are elevi nominalizați, doar ei pot intra
+    if user.is_student:
+        has_assignments = (
+            db.query(ExamAssignment).filter(ExamAssignment.exam_id == exam_id).count() > 0
+        )
+        if has_assignments:
+            mine = (
+                db.query(ExamAssignment)
+                .filter(
+                    ExamAssignment.exam_id == exam_id,
+                    ExamAssignment.student_id == user.id,
+                )
+                .first()
+            )
+            if not mine:
+                raise HTTPException(status_code=403, detail="Nu ești înscris la acest examen.")
 
     # Reia o tentativă în curs dacă există
     attempt = (
@@ -497,7 +509,6 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
             )
             .count()
         )
-        # max_attempts = 0 înseamnă nelimitat
         if exam.max_attempts and exam.max_attempts > 0 and used >= exam.max_attempts:
             raise HTTPException(status_code=403, detail="Ai atins numărul maxim de încercări.")
 
@@ -524,12 +535,7 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
 
 
 @router.post("/attempts/{attempt_id}/submit")
-def submit_attempt(
-    attempt_id: int,
-    data: ExamSubmission,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def submit_attempt(attempt_id: int, data: ExamSubmission, token: str, db: Session = Depends(get_db)):
     """Trimite răspunsurile -> auto-grading -> scor (sau 'submitted' dacă are OpenText)."""
     user = get_current_user(token, db)
 
@@ -579,7 +585,10 @@ def get_attempt_detail(attempt_id: int, token: str, db: Session = Depends(get_db
         a = ans_by_q.get(q.id)
         selected = []
         if a and a.selected_option_ids:
-            selected = [int(x) for x in a.selected_option_ids.split(",") if x.strip().lstrip("-").isdigit()]
+            selected = [
+                int(x) for x in a.selected_option_ids.split(",")
+                if x.strip().lstrip("-").isdigit()
+            ]
         questions.append({
             "id": q.id,
             "question_text": q.question_text,
@@ -597,6 +606,7 @@ def get_attempt_detail(attempt_id: int, token: str, db: Session = Depends(get_db
         })
 
     return {**_attempt_result_payload(attempt), "questions": questions}
+
 
 # ============================================================
 # PROFESOR/ADMIN - Corectare manuală (open_text)
@@ -699,12 +709,7 @@ def attempt_grading_detail(attempt_id: int, token: str, db: Session = Depends(ge
 
 
 @router.post("/attempts/{attempt_id}/grade")
-def grade_attempt(
-    attempt_id: int,
-    data: ExamGradingSubmission,
-    token: str,
-    db: Session = Depends(get_db),
-):
+def grade_attempt(attempt_id: int, data: ExamGradingSubmission, token: str, db: Session = Depends(get_db)):
     """Profesorul/Adminul notează răspunsurile open_text -> recalculează scorul."""
     user = get_current_user(token, db)
     if not user.can_create_content:
@@ -726,5 +731,3 @@ def grade_attempt(
     service = ExamGradingService(db)
     attempt = service.grade_answers_manually(attempt, data.answers, user, data.overall_feedback)
     return _attempt_result_payload(attempt)
-
-

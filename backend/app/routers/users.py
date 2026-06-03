@@ -9,15 +9,35 @@ from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+
 @router.get("/", response_model=List[UserResponse])
-def get_users(token: str, db: Session = Depends(get_db)):
+def get_users(
+    token: str,
+    db: Session = Depends(get_db),
+    role: Optional[str] = None,
+    department_id: Optional[int] = None,
+):
+    """
+    Listă utilizatori.
+    - Admin: toți (cu filtre opționale role / department_id)
+    - Manager: doar din departamentul lui (filtre opționale aplicate peste)
+    """
     user = get_current_user(token, db)
+
     if user.role == RoleEnum.admin:
-        return db.query(User).all()
+        q = db.query(User)
     elif user.role == RoleEnum.manager:
-        return db.query(User).filter(User.department_id == user.department_id).all()
+        q = db.query(User).filter(User.department_id == user.department_id)
     else:
         raise HTTPException(status_code=403, detail="Acces interzis")
+
+    if role is not None:
+        q = q.filter(User.role == role)
+    if department_id is not None:
+        q = q.filter(User.department_id == department_id)
+
+    return q.all()
+
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, token: str, db: Session = Depends(get_db)):
@@ -28,6 +48,7 @@ def get_user(user_id: int, token: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="Userul nu există")
     return user
+
 
 @router.put("/{user_id}/reactivate")
 def reactivate_user(user_id: int, token: str, db: Session = Depends(get_db)):
@@ -40,6 +61,7 @@ def reactivate_user(user_id: int, token: str, db: Session = Depends(get_db)):
     user.is_active = True
     db.commit()
     return {"message": "User reactivat"}
+
 
 @router.put("/{user_id}")
 def update_user(user_id: int, token: str, role: Optional[str] = None,
@@ -57,6 +79,7 @@ def update_user(user_id: int, token: str, role: Optional[str] = None,
     db.commit()
     db.refresh(user)
     return user
+
 
 @router.delete("/{user_id}")
 def deactivate_user(user_id: int, token: str, db: Session = Depends(get_db)):
