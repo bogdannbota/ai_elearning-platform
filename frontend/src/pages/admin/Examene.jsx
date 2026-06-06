@@ -31,6 +31,7 @@ export default function ExameneAdmin() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [gradingExam, setGradingExam] = useState(null);
+  const [resultExam, setResultExam] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => { fetchAll(); }, []);
@@ -156,6 +157,7 @@ export default function ExameneAdmin() {
                     <span className="tag bg-slate-100 text-slate-600 border-slate-200 metric">{exam.max_attempts === 0 ? "∞" : `${exam.max_attempts}x`}</span>
                   </div>
                   {toGrade.length > 0 && <button onClick={() => setGradingExam(exam)} className="btn w-full mb-4" style={{ background: "#b45309", color: "#fff" }}>Corectează ({toGrade.length})</button>}
+                  <button onClick={() => setResultExam(exam)} className="btn btn-ghost w-full mb-2">Rezultate</button>
                   <div className="flex gap-2 mt-auto">
                     <button onClick={() => navigate(`/admin/examene/${exam.id}/editor`)} className="btn btn-ghost flex-1">Editor</button>
                     <button onClick={() => togglePublish(exam)} className="btn btn-ghost flex-1">{exam.is_published ? "Ascunde" : "Publică"}</button>
@@ -262,6 +264,7 @@ export default function ExameneAdmin() {
       )}
 
       {gradingExam && <GradingModal exam={gradingExam} attempts={pendingFor(gradingExam.id)} token={token} addToast={addToast} onClose={() => setGradingExam(null)} onGraded={() => { setGradingExam(null); fetchAll(); }} />}
+      {resultExam && <ResultsModal exam={resultExam} token={token} addToast={addToast} onClose={() => setResultExam(null)} />}
     </div>
   );
 }
@@ -364,6 +367,132 @@ function GradingModal({ exam, attempts, token, addToast, onClose, onGraded }) {
             <div className="flex gap-3 mt-4">
               <button onClick={handleSave} disabled={saving} className="btn btn-primary flex-1">{saving ? "Se salvează..." : "Finalizează corectarea"}</button>
               <button onClick={() => setSelected(null)} disabled={saving} className="btn btn-ghost flex-1">Anulează</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ResultsModal({ exam, token, addToast, onClose }) {
+  const [attempts, setAttempts] = useState([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [detail, setDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  useEffect(() => { fetchAttempts(); /* eslint-disable-next-line */ }, []);
+
+  const fetchAttempts = async () => {
+    try {
+      setLoadingList(true);
+      const res = await axios.get(`${API}/exams/${exam.id}/attempts?token=${token}`);
+      setAttempts(res.data);
+    } catch (e) { addToast(e.response?.data?.detail || "Eroare la încărcarea rezultatelor", "error"); }
+    finally { setLoadingList(false); }
+  };
+
+  const openDetail = async (attemptId) => {
+    try {
+      setLoadingDetail(true);
+      const res = await axios.get(`${API}/exams/attempts/${attemptId}?token=${token}`);
+      setDetail(res.data);
+    } catch (e) { addToast(e.response?.data?.detail || "Eroare la încărcarea tentativei", "error"); }
+    finally { setLoadingDetail(false); }
+  };
+
+  const STATUS = {
+    in_progress: { label: "În curs", cls: "bg-slate-100 text-slate-600 border-slate-200" },
+    submitted: { label: "Așteaptă corectare", cls: "bg-amber-50 text-amber-800 border-amber-200" },
+    graded: { label: "Corectat", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+    passed: { label: "Promovat", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    failed: { label: "Nepromovat", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+    expired: { label: "Expirat", cls: "bg-slate-100 text-slate-500 border-slate-200" },
+  };
+  const stat = (s) => STATUS[s] || { label: s, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: "rgba(15,22,34,.45)" }}>
+      <div className="surface w-full max-w-2xl my-8 p-8">
+        <div className="flex items-start justify-between mb-6 border-b pb-4" style={{ borderColor: "var(--line)" }}>
+          <div>
+            <span className="eyebrow">Rezultate</span>
+            <h2 className="text-2xl font-extrabold text-slate-900 mt-1">{exam.title}</h2>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+        </div>
+
+        {!detail ? (
+          loadingList ? <div className="text-center py-12 text-slate-400">Se încarcă...</div>
+          : attempts.length === 0 ? <div className="text-center py-12 text-slate-400">Niciun student nu a dat acest examen încă.</div>
+          : (
+            <div className="space-y-3">
+              {attempts.map((a) => {
+                const s = stat(a.status);
+                return (
+                  <div key={a.attempt_id} className="bg-slate-50 border rounded-xl p-4 flex items-center justify-between gap-3" style={{ borderColor: "var(--line)" }}>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 truncate">{a.student_name}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className={`tag ${s.cls}`}>{s.label}</span>
+                        <span className="text-xs text-slate-500 metric">{a.score != null ? `${a.score}%` : "—"}</span>
+                        <span className="text-xs text-slate-400">{a.submitted_at ? new Date(a.submitted_at).toLocaleString("ro-RO") : "nefinalizat"}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => openDetail(a.attempt_id)} disabled={loadingDetail || a.status === "in_progress"} className="btn btn-primary flex-shrink-0">Vezi</button>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          <>
+            <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
+              <button onClick={() => setDetail(null)} className="text-sm font-semibold text-slate-400 hover:text-slate-700">← Înapoi la listă</button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`tag ${stat(detail.status).cls}`}>{stat(detail.status).label}</span>
+                <span className="text-sm font-semibold text-slate-700 metric">
+                  {detail.score != null ? `${detail.score}%` : "—"}
+                  {detail.points_earned != null && detail.total_points != null && ` · ${detail.points_earned}/${detail.total_points} pct`}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-5 max-h-[55vh] overflow-y-auto pr-2">
+              {detail.questions.map((q, i) => (
+                <div key={q.id} className="bg-slate-50 border rounded-xl p-5" style={{ borderColor: "var(--line)" }}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <p className="font-semibold text-slate-900">{i + 1}. {q.question_text}</p>
+                    <span className="text-xs font-semibold text-slate-500 metric whitespace-nowrap">
+                      {q.points_earned != null ? q.points_earned : "—"} / {q.points} pct
+                    </span>
+                  </div>
+
+                  {q.question_type === "open_text" ? (
+                    <div className="text-sm">
+                      <p className="text-slate-500 mb-1">Răspuns student:</p>
+                      <p className="bg-white border rounded-lg p-3 text-slate-700 whitespace-pre-wrap" style={{ borderColor: "var(--line)" }}>{q.text_answer || "— fără răspuns —"}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {q.options.map((o) => {
+                        const selected = (q.selected_option_ids || []).includes(o.id);
+                        let cls = "bg-white border-slate-100 text-slate-600";
+                        if (o.is_correct) cls = "bg-emerald-50 border-emerald-200 text-emerald-800 font-semibold";
+                        else if (selected) cls = "bg-rose-50 border-rose-200 text-rose-700";
+                        return (
+                          <div key={o.id} className={`flex items-center justify-between gap-3 text-sm px-4 py-2 rounded-lg border ${cls}`}>
+                            <span>{o.option_text}</span>
+                            {selected && <span className="text-xs font-bold uppercase tracking-wide">ales</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {q.explanation && <p className="text-xs text-slate-400 mt-3 italic">Explicație: {q.explanation}</p>}
+                </div>
+              ))}
             </div>
           </>
         )}

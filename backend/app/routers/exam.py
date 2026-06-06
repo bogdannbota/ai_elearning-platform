@@ -489,8 +489,7 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
             if not mine:
                 raise HTTPException(status_code=403, detail="Nu ești înscris la acest examen.")
 
-    # Reia o tentativă în curs dacă există
-   # Reia o tentativă în curs dacă există
+    # Tentativa în curs (candidat pentru reluare)
     attempt = (
         db.query(ExamAttempt)
         .filter(
@@ -502,7 +501,6 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
     )
 
     # Dacă tentativa în curs a depășit timpul alocat, o închidem (expired)
-    # ca să conteze la numărul de încercări (altfel s-ar relua la infinit).
     if attempt and exam.duration_minutes and exam.duration_minutes > 0:
         started = attempt.started_at
         if started and started.tzinfo is None:
@@ -513,19 +511,28 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
             db.commit()
             attempt = None
 
-    if not attempt:
-        used = (
-            db.query(ExamAttempt)
-            .filter(
-                ExamAttempt.exam_id == exam_id,
-                ExamAttempt.student_id == user.id,
-                ExamAttempt.status != ExamAttemptStatus.in_progress,
-            )
-            .count()
+    # Câte tentative FINALIZATE are deja (nu numărăm cea în curs)
+    used = (
+        db.query(ExamAttempt)
+        .filter(
+            ExamAttempt.exam_id == exam_id,
+            ExamAttempt.student_id == user.id,
+            ExamAttempt.status != ExamAttemptStatus.in_progress,
         )
-        if exam.max_attempts and exam.max_attempts > 0 and used >= exam.max_attempts:
-            raise HTTPException(status_code=403, detail="Ai atins numărul maxim de încercări.")
+        .count()
+    )
 
+    # Dacă a atins limita prin tentative finalizate, NU mai poate intra -
+    # nici măcar să reia o tentativă "în curs" rămasă agățată (o închidem).
+    if exam.max_attempts and exam.max_attempts > 0 and used >= exam.max_attempts:
+        if attempt:
+            attempt.status = ExamAttemptStatus.expired
+            attempt.submitted_at = now
+            db.commit()
+        raise HTTPException(status_code=403, detail="Ai atins numărul maxim de încercări.")
+
+    # Reia tentativa în curs sau creează una nouă
+    if not attempt:
         attempt = ExamAttempt(
             exam_id=exam_id,
             student_id=user.id,
@@ -546,7 +553,6 @@ def start_attempt(exam_id: int, token: str, db: Session = Depends(get_db)):
             "questions": _sanitize_questions_for_student(exam),
         },
     }
-
 
 @router.post("/attempts/{attempt_id}/submit")
 def submit_attempt(attempt_id: int, data: ExamSubmission, token: str, db: Session = Depends(get_db)):
@@ -745,3 +751,35 @@ def grade_attempt(attempt_id: int, data: ExamGradingSubmission, token: str, db: 
     service = ExamGradingService(db)
     attempt = service.grade_answers_manually(attempt, data.answers, user, data.overall_feedback)
     return _attempt_result_payload(attempt)
+
+@router.get("/{exam_id}/attempts")
+def exam_attempts(exam_id: int, token: str, db: Session = Depends(get_db)):
+    """Toate tentativele studenților la un examen (profesor/admin)."""
+    user = get_current_user(token, db)
+
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Examenul nu există.")
+    _require_can_grade(user, exam)  # admin: orice; profesor: doar ale lui
+
+    attempts = (
+        db.query(ExamAttempt)
+        .options(selectinload(ExamAttempt.student))
+        .filter(ExamAttempt.exam_id == exam_id)
+        .order_by(ExamAttempt.started_at.desc())
+        .all()
+    )
+    return [
+        {
+            "attempt_id": a.id,
+            "student_id": a.student_id,
+            "student_name": a.student.full_name if a.student else "—",
+            "status": a.status.value if hasattr(a.status, "value") else a.status,
+            "score": float(a.score) if a.score is not None else None,
+            "points_earned": float(a.points_earned) if a.points_earned is not None else None,
+            "total_points": float(a.total_points) if a.total_points is not None else None,
+            "requires_manual_grading": a.requires_manual_grading,
+            "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+        }
+        for a in attempts
+    ]
