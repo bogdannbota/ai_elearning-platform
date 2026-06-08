@@ -5,6 +5,7 @@ import { ToastProvider } from "./context/ToastContext";
 import PrivateRoute from "./components/PrivateRoute";
 import Navbar from "./components/Navbar";
 import AiAssistant from "./components/AiAssistant";
+import Footer from "./components/Footer";
 
 // PAGES
 import Login from "./pages/Login";
@@ -214,6 +215,7 @@ function AppContent() {
         {/* fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      <Footer />
     </>
   );
 }
