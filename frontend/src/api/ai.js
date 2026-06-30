@@ -19,3 +19,6 @@ export const summarizeCourse = (course_id) =>
 
 export const askAI = (message, context) =>
   api.post(withToken("/ai/assist"), { message, context });
+
+export const navigateAI = (message) =>
+  api.post("/ai/navigate", { message });

@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export default function AiAssistant() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -14,14 +13,7 @@ export default function AiAssistant() {
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-
-  // Nu afișa asistentul dacă nu e logat
   if (!user) return null;
-
-  // Nu afișa asistentul în timpul examenelor: /exams/:examId/take
-  const isExamPage =
-    location.pathname.startsWith("/exams/") && location.pathname.endsWith("/take");
-  if (isExamPage) return null;
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -29,16 +21,18 @@ export default function AiAssistant() {
     setMessages((p) => [...p, { role: "user", text }]);
     setInput(""); setLoading(true);
     try {
-      const res = await api.post("/ai/chat", { message: text });
+      const res = await api.post("/ai/navigate", { message: text });
       const body = res.data?.data ?? res.data;
-      const answer = body?.answer ?? body?.response ?? "Nu am un răspuns acum.";
-      const action = body?.action;
-      setMessages((p) => [...p, { role: "ai", text: answer }]);
-      if (action?.type === "navigate" && action.to) { setOpen(false); navigate(action.to); }
+      const answer = body?.answer ?? "Nu am un răspuns acum.";
+      const route = body?.route ?? null;
+      // NU mai navigăm automat: doar atașăm ruta ca link pe care îl apasă utilizatorul
+      setMessages((p) => [...p, { role: "ai", text: answer, route }]);
     } catch {
       setMessages((p) => [...p, { role: "ai", text: "Asistentul nu este disponibil momentan." }]);
     } finally { setLoading(false); }
   };
+
+  const goTo = (route) => { setOpen(false); navigate(route); };
   const handleKey = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
 
   return (
@@ -59,20 +53,46 @@ export default function AiAssistant() {
             </div>
             <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center">✕</button>
           </div>
+
           <div className="h-80 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50/50">
-            {messages.length === 0 && <p className="text-center text-slate-400 text-sm mt-8">Întreabă-mă unde găsești cursurile, examenele sau profilul.</p>}
+            {messages.length === 0 && (
+              <p className="text-center text-slate-400 text-sm mt-8">
+                Întreabă-mă unde găsești cursurile, examenele sau profilul.
+              </p>
+            )}
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <span className={`inline-block px-3.5 py-2 rounded-2xl text-sm max-w-[85%] leading-relaxed ${m.role === "user" ? "text-white rounded-br-md" : "bg-white border text-slate-700 rounded-bl-md"}`}
-                  style={m.role === "user" ? { background: "var(--ink)" } : { borderColor: "var(--line)" }}>{m.text}</span>
+                <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
+                  m.role === "user" ? "bg-[var(--ink)] text-white" : "bg-white border border-slate-200 text-slate-700"
+                }`}>
+                  <p>{m.text}</p>
+                  {m.route && (
+                    <button
+                      onClick={() => goTo(m.route)}
+                      className="mt-2 inline-block text-[13px] font-semibold underline text-[var(--ink)] hover:opacity-80">
+                      Mergi la {m.route}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
-            {loading && <div className="flex justify-start"><span className="inline-flex gap-1 px-4 py-3 rounded-2xl bg-white border" style={{ borderColor: "var(--line)" }}>{[0, 150, 300].map((d) => <span key={d} className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />)}</span></div>}
+            {loading && <p className="text-slate-400 text-sm">Se gândește…</p>}
             <div ref={endRef} />
           </div>
-          <div className="flex items-center gap-2 p-3 border-t bg-white" style={{ borderColor: "var(--line)" }}>
-            <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey} placeholder="Scrie o întrebare..." className="input flex-1" />
-            <button onClick={sendMessage} disabled={loading || !input.trim()} className="btn btn-primary px-4">→</button>
+
+          <div className="p-3 border-t border-slate-200 bg-white flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              placeholder="Scrie un mesaj…"
+              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-[var(--ink)]"
+            />
+            <button onClick={sendMessage} disabled={loading}
+              className="px-4 py-2 rounded-lg text-white text-sm font-bold disabled:opacity-50"
+              style={{ background: "var(--ink)" }}>
+              Trimite
+            </button>
           </div>
         </div>
       )}

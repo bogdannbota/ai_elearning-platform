@@ -9,7 +9,7 @@ from app.database import engine, Base
 from app.routers import (
     auth, departments, users, courses, progress, ai,
     learning_plans, dashboard, exam,
-    course_categories, course_modules,
+    course_categories, course_modules,ai_chat,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -42,7 +42,7 @@ app.include_router(learning_plans.router)
 app.include_router(dashboard.router)
 app.include_router(course_categories.router)
 app.include_router(course_modules.router)
-
+app.include_router(ai_chat.router)   # <-- adăugat (ruta /ai/navigate, fără coliziune)
 # static
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

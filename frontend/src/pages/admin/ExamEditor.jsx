@@ -53,7 +53,7 @@ export default function ExamEditor() {
     if (aiTypes.length === 0) return addToast("Alege cel puțin un tip", "warning");
     try {
       setAiLoading(true);
-      const res = await axios.post(`${API}/ai/generate-exam-questions?token=${token}`, { subject: aiSubject, num_questions: aiCount, difficulty: aiDifficulty, question_types: aiTypes, language: "ro" });
+     const res = await axios.post(`${API}/ai/generate-exam-questions`, { subject: aiSubject, num_questions: aiCount, difficulty: aiDifficulty, question_types: aiTypes, language: "ro" }, { headers: { Authorization: `Bearer ${token}` } });
       const body = res.data?.data ?? res.data;
       const questions = body?.questions || [];
       setAiSuggestions(questions); addToast(`${questions.length} întrebări generate`, "success");
